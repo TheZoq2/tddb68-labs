@@ -30,7 +30,11 @@ void prepend(struct list_item *first, int x) /* puts x at the beginning of the l
 
 void print(struct list_item *first) /* prints all elements in the list */
 {
-    struct list_item* current = first;
+    struct list_item* current = first->next;
+    while (current != NULL) {
+        printf("%d ", current->value);
+    }
+    printf("\n");
 }
 
 /* input_sorted: find the first element in the list larger than x
