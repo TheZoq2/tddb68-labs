@@ -33,6 +33,7 @@ void print(struct list_item *first) /* prints all elements in the list */
     struct list_item* current = first->next;
     while (current != NULL) {
         printf("%d ", current->value);
+        current = current->next;
     }
     printf("\n");
 }
