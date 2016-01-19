@@ -23,6 +23,8 @@ void append(struct list_item *first, int x) /* puts x at the end of the list */
 
 void prepend(struct list_item *first, int x) /* puts x at the beginning of the list */
 {
+    first->next = root->next;
+    root->next = first;
 }
 
 void print(struct list_item *first) /* prints all elements in the list */
