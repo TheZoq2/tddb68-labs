@@ -90,3 +90,6 @@ tramp
 *.out
 *.app
 
+
+#Python stuff
+*.pyc
