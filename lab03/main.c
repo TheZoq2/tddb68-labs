@@ -9,14 +9,14 @@ struct list_item
 
 void append(struct list_item *first, int x) /* puts x at the end of the list */
 {
-    list_item* current = first;
+    struct list_item* current = first;
     
     while(current->next != NULL)
     {
         current = current->next;
     }
 
-    current->next = (list_item*) malloc(sizeof(list_item));
+    current->next = (struct list_item*) malloc(sizeof(struct list_item));
 
     current->next->value = x;
     current->next->next = NULL;
@@ -24,12 +24,19 @@ void append(struct list_item *first, int x) /* puts x at the end of the list */
 
 void prepend(struct list_item *first, int x) /* puts x at the beginning of the list */
 {
-    first->next = root->next;
-    root->next = first;
+    struct list_item* new_elem = malloc(sizeof(struct list_item));
+    new_elem->next = first->next;
+    first->next = new_elem;
 }
 
 void print(struct list_item *first) /* prints all elements in the list */
 {
+    struct list_item* current = first->next;
+    while (current != NULL) {
+        printf("%d ", current->value);
+        current = current->next;
+    }
+    printf("\n");
 }
 
 /* 
