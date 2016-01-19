@@ -24,8 +24,9 @@ void append(struct list_item *first, int x) /* puts x at the end of the list */
 
 void prepend(struct list_item *first, int x) /* puts x at the beginning of the list */
 {
-    struct list_item* new_elem = malloc(sizeof(struct list_item));
+    struct list_item* new_elem = (struct list_item*) malloc(sizeof(struct list_item));
     new_elem->next = first->next;
+    new_elem->value = x;
     first->next = new_elem;
 }
 
@@ -45,30 +46,30 @@ void print(struct list_item *first) /* prints all elements in the list */
 */
 void input_sorted(struct list_item *first, int x)
 {
-    list_item* current = first;
+    struct list_item* current = first;
 
     while(current->next != NULL)
     {
         if(current->next->value > x)
         {
-            list_item* oldNext = current->next;
+            prepend(current, x);
 
-            current->next = (list_item*) malloc(sizeof(list_item));
-
-            current->next->value = x;
-
-            current->next->next = oldNext;
+            return;
         }
+
+        current = current->next;
     }
+    
+    append(current, x);
 }
 
 void destroy(struct list_item *first) /* free everything dynamically allocated */
 {
-    list_item* current = first->next;
+    struct list_item* current = first->next;
 
     while(current != NULL)
     {
-        list_item* next = current->next;
+        struct list_item* next = current->next;
         
         free(current);
         current = next;
@@ -105,5 +106,8 @@ int main()
     input_sorted(&root, 2);
     input_sorted(&root, 0);
 
+    print(&root);
+
+    destroy(&root);
     return 0;
 }
