@@ -1,7 +1,16 @@
 
-# Created by https://www.gitignore.io/api/++,emacs,linux,vim
+# Created by https://www.gitignore.io/api/++,vim,emacs,linux,c++
 
 #!! ERROR: ++ is undefined. Use list command to see defined gitignore types !!#
+
+### Vim ###
+[._]*.s[a-w][a-z]
+[._]s[a-w][a-z]
+*.un~
+Session.vim
+.netrwhist
+*~
+
 
 ### Emacs ###
 # -*- mode: gitignore; -*-
@@ -51,11 +60,33 @@ tramp
 .Trash-*
 
 
-### Vim ###
-[._]*.s[a-w][a-z]
-[._]s[a-w][a-z]
-*.un~
-Session.vim
-.netrwhist
-*~
+### C++ ###
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
 
