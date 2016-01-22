@@ -93,3 +93,7 @@ tramp
 
 #Python stuff
 *.pyc
+
+# Pintos
+build/
+qemu
