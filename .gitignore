@@ -97,3 +97,7 @@ tramp
 # Pintos
 build/
 qemu
+setitimer-helper
+squish-pty
+squish-unix
+
