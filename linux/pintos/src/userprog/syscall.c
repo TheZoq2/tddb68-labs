@@ -23,12 +23,12 @@ syscall_handler (struct intr_frame *f UNUSED)
   {
     case  SYS_HALT:
     {
-        
+      power_off();
       break;
     }
     case SYS_EXIT:
     {
-        
+      
       break;
     }
     case SYS_EXEC:
