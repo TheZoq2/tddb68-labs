@@ -102,3 +102,7 @@ squish-pty
 squish-unix
 
 examples
+
+# Ctags
+tags
+TAGS
