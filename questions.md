@@ -29,3 +29,11 @@ The user processes memory
 # b)
 Using the esp* pointer
 
+
+#7
+2 programs shouldn't be able to write from the same file at the same time (or read when another is writing)
+
+#8
+To create file descriptors used later when reading/writing
+
+#9
