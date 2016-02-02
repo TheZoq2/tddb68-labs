@@ -18,7 +18,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   printf ("system call!\n");
 
-  int syscall_id = *((int*)f->esp);
+  int syscall_id = *((int*)f->esp); //Stack points to the address after the stack 
 
   printf("sycall id: %i\n", syscall_id);
 
@@ -46,10 +46,10 @@ syscall_handler (struct intr_frame *f UNUSED)
     {
       //Fetch the filename and size
       char* filename = *(char**)(f->esp + sizeof(void*));
-      unsigned int size = *((int*)(f->esp + sizeof(void*)));
+      unsigned int size = *((unsigned int*)(f->esp + 2 * sizeof(void*)));
 
-      printf("Filename %c size %i\n", *filename, size);
-      
+      printf("Filename %s size %i\n", filename, size);
+
       break;
     }
     case SYS_REMOVE:
