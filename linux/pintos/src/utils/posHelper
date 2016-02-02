@@ -1,0 +1,13 @@
+#!/bin/bash
+
+DISK_NAME=fs.dsk
+if [ $1 == 'mkdisk' ]; then
+    pintos-mkdisk $DISK_NAME 2
+elif [ $1 == 'rmdisk' ]; then
+    rm $DISK_NAME
+elif [ $1 == 'format' ]; then
+    pintos -v --qemu -- -f -q
+elif [ $1 == 'cp' ]; then
+    pintos -v --qemu -p $2 -a $3 -- -q
+fi
+
