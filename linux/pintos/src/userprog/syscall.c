@@ -20,6 +20,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   int syscall_id = *((int*)f->esp);
 
+  printf("sycall id: %i\n", syscall_id);
+
   switch(syscall_id) 
   {
     case  SYS_HALT:
@@ -42,6 +44,12 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_CREATE:
     {
+      //Fetch the filename and size
+      char* filename = (char*)(f->esp + 4);
+      unsigned int size = *((int*)(f->esp + 8));
+
+      printf("Filename %c size %i\n", *filename, size);
+      
       break;
     }
     case SYS_REMOVE:
@@ -62,6 +70,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_WRITE:
     {
+      printf("Write syscall\n");
       break;
     }
     case SYS_SEEK:
@@ -80,5 +89,6 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
   }
   
+  printf("Done syscall\n");
   thread_exit ();
 }
