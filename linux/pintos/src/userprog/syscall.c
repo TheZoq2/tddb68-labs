@@ -18,13 +18,12 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   printf ("system call!\n");
 
-  int syscall_id = *((int*)f->esp);
+  int syscall_id = *((int*)f->esp -4); //Stack points to the address after the stack 
 
   switch(syscall_id) 
   {
     case  SYS_HALT:
     {
-      printf("Running SYS_HALT");
       power_off();
       break;
     }
