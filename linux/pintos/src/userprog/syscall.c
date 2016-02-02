@@ -45,8 +45,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_CREATE:
     {
       //Fetch the filename and size
-      char* filename = (char*)(f->esp + 4);
-      unsigned int size = *((int*)(f->esp + 8));
+      char* filename = *(char**)(f->esp + sizeof(void*));
+      unsigned int size = *((int*)(f->esp + sizeof(void*)));
 
       printf("Filename %c size %i\n", *filename, size);
       
