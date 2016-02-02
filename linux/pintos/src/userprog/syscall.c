@@ -18,7 +18,7 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   printf ("system call!\n");
 
-  int syscall_id = *((int*)f->esp -4); //Stack points to the address after the stack 
+  int syscall_id = *((int*)f->esp); //Stack points to the address after the stack 
 
   switch(syscall_id) 
   {
@@ -42,6 +42,10 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_CREATE:
     {
+      //Fetch the filename and size
+      char* filename = *((char*)f->esp + 4);
+      int size = *((int*)f->esp + 8);
+
       break;
     }
     case SYS_REMOVE:
