@@ -17,13 +17,13 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  printf ("system call!\n");
+  //printf ("system call!\n");
 
   int syscall_id = *((int*)f->esp); //Stack points to the address after the stack 
 
   void* stack_ptr = f->esp;
   
-  printf("sycall id: %i\n", syscall_id);
+  //printf("sycall id: %i\n", syscall_id);
 
   stack_ptr += sizeof(void*);
 
@@ -82,7 +82,23 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_WRITE:
     {
-      printf("Write syscall\n");
+      int fd = *((int*) stack_ptr);
+      stack_ptr += sizeof(int);
+      void* buffer = *((void**) stack_ptr);
+      stack_ptr += sizeof(void*);
+      unsigned size = *((unsigned*) stack_ptr);
+
+      int orig_size = size;
+      if (fd == 1) {
+        while (size > 0) {
+          int size_to_push = size > 256 ? 256 : size;
+          putbuf(buffer, size_to_push);
+          size -= size_to_push;
+          buffer += size_to_push;
+        }
+        f->eax = orig_size;
+      }
+      
       break;
     }
     case SYS_SEEK:
@@ -101,6 +117,6 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
   }
  
-  printf("Done syscall\n");
+  //printf("Done syscall\n");
   //thread_exit ();
 }
