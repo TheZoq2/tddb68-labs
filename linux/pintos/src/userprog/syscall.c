@@ -79,22 +79,26 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_WRITE:
     {
-      unsigned size = *((unsigned*) stack_ptr);
-      stack_ptr += sizeof(unsigned);
+      printf("in write call\n");
+      int fd = *((int*) stack_ptr);
+      stack_ptr += sizeof(int);
       void* buffer = *((void**) stack_ptr);
       stack_ptr += sizeof(void*);
-      int fd = *((int*) stack_ptr);
+      unsigned size = *((unsigned*) stack_ptr);
 
+      printf("fd = %u, should print %s which is %d characters \n", fd, (char*)buffer, size);
       int orig_size = size;
       if (fd == 1) {
         while (size > 0) {
-          size_to_push = size > 256 ? 256 : size;
+          int size_to_push = size > 256 ? 256 : size;
           putbuf(buffer, size_to_push);
           size -= size_to_push;
+          buffer += size_to_push;
         }
         f->eax = orig_size;
       }
       
+      printf("exiting write call\n");
       break;
     }
     case SYS_SEEK:
