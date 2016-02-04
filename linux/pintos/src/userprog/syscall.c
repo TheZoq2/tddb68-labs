@@ -88,6 +88,8 @@ syscall_handler (struct intr_frame *f UNUSED)
         }
       }
 
+      printf("Opened file %s with size %u", filename, file_descriptor);
+
       f->eax = file_descriptor;
       
       break;
