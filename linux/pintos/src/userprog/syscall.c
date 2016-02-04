@@ -4,6 +4,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/init.h"
+#include "filesys/filesys.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -21,9 +22,8 @@ syscall_handler (struct intr_frame *f UNUSED)
   int syscall_id = *((int*)f->esp); //Stack points to the address after the stack 
 
   void* stack_ptr = f->esp;
-
+  
   printf("sycall id: %i\n", syscall_id);
-
 
   stack_ptr += sizeof(void*);
 
@@ -36,7 +36,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_EXIT:
     {
-      
+      thread_exit();
       break;
     }
     case SYS_EXEC:
@@ -51,14 +51,17 @@ syscall_handler (struct intr_frame *f UNUSED)
     {
       //Fetch the filename and size
       char* filename = *(char**)stack_ptr;
-      stack_ptr += sizeof(void*);
+      stack_ptr += sizeof(char*);
       unsigned int size = *((unsigned int*)stack_ptr);
 
-      printf("Filename %s size %i\n", filename, size);
+      bool result = filesys_create(filename, size);
 
+      f->eax = result;
+      //f->esp += sizeof(bool);
       break;
     }
     case SYS_REMOVE:
+    {
     
       break;
     }
@@ -109,7 +112,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     default:
       break;
   }
-  
+ 
   printf("Done syscall\n");
-  thread_exit ();
+  //thread_exit ();
 }
