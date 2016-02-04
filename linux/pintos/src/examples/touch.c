@@ -11,9 +11,9 @@ main (void)
     int size = 124;
 
     //printf("Original ptr %p", filename);
-    create(filename, size);
+    bool result = create(filename, size);
 
     //printf("touch: Done create");
 
-    halt();
+    //halt();
 }
