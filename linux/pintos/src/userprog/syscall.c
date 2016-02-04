@@ -6,6 +6,8 @@
 #include "threads/init.h"
 #include "filesys/filesys.h"
 
+#define MIN_FILE_ID 2
+
 static void syscall_handler (struct intr_frame *);
 
 void
@@ -69,7 +71,25 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_OPEN:
     {
+      //Kod skriven tillsammans med Hannes Tukalla
+      char* filename = *(char**)stack_ptr;
+      int file_descriptor = -1;
+      struct file* opened_file = filesys_open(filename);
 
+      //Add the new file to the open_files of the thread
+      for(size_t i = MIN_FILE_ID; i < MAX_PROCESS_FILES; ++i)
+      {
+        //Is this slot is avalilable  for opening a file
+        if(curr_thread->open_files[i] == NULL)
+        {
+          curr_thread->open_files[i] = opened_file;
+          file_descriptor = i;
+          break;
+        }
+      }
+
+      f->eax = file_descriptor;
+      
       break;
     }
     case SYS_FILESIZE:
