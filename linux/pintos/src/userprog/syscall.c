@@ -20,7 +20,12 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   int syscall_id = *((int*)f->esp); //Stack points to the address after the stack 
 
+  void* stack_ptr = f->esp;
+
   printf("sycall id: %i\n", syscall_id);
+
+
+  stack_ptr += sizeof(void*);
 
   switch(syscall_id) 
   {
@@ -45,15 +50,16 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_CREATE:
     {
       //Fetch the filename and size
-      char* filename = *(char**)(f->esp + sizeof(void*));
-      unsigned int size = *((unsigned int*)(f->esp + 2 * sizeof(void*)));
+      char* filename = *(char**)stack_ptr;
+      stack_ptr += sizeof(void*);
+      unsigned int size = *((unsigned int*)stack_ptr);
 
       printf("Filename %s size %i\n", filename, size);
 
       break;
     }
     case SYS_REMOVE:
-    {
+    
       break;
     }
     case SYS_OPEN:
