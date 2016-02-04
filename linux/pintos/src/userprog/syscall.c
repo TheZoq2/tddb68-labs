@@ -76,7 +76,22 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_WRITE:
     {
-      printf("Write syscall\n");
+      unsigned size = *((unsigned*) stack_ptr);
+      stack_ptr += sizeof(unsigned);
+      void* buffer = *((void**) stack_ptr);
+      stack_ptr += sizeof(void*);
+      int fd = *((int*) stack_ptr);
+
+      int orig_size = size;
+      if (fd == 1) {
+        while (size > 0) {
+          size_to_push = size > 256 ? 256 : size;
+          putbuf(buffer, size_to_push);
+          size -= size_to_push;
+        }
+        f->eax = orig_size;
+      }
+      
       break;
     }
     case SYS_SEEK:
