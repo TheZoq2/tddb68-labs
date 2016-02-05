@@ -86,7 +86,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       unsigned size = *((unsigned*) stack_ptr);
 
       int orig_size = size;
-      if (fd == 1) {
+      if (fd == STDIN_FILENO) {
         while (size > 0) {
           int size_to_push = size > 256 ? 256 : size;
           putbuf(buffer, size_to_push);
