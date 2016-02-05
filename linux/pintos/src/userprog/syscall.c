@@ -66,7 +66,14 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_REMOVE:
     {
-    
+      //Fetch the filename and size
+      char* filename = *(char**)stack_ptr;
+      stack_ptr += sizeof(char*);
+      unsigned int size = *((unsigned int*)stack_ptr);
+
+      bool result = filesys_remove(filename);
+
+      f->eax = result;
       break;
     }
     case SYS_OPEN:
@@ -136,7 +143,4 @@ syscall_handler (struct intr_frame *f UNUSED)
     default:
       break;
   }
- 
-  //printf("Done syscall\n");
-  //thread_exit ();
 }
