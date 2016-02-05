@@ -27,6 +27,9 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   stack_ptr += sizeof(void*);
 
+  struct thread* curr_thread =  thread_current();
+
+
   switch(syscall_id) 
   {
     case  SYS_HALT:
@@ -57,7 +60,6 @@ syscall_handler (struct intr_frame *f UNUSED)
       bool result = filesys_create(filename, size);
 
       f->eax = result;
-      //f->esp += sizeof(bool);
       break;
     }
     case SYS_REMOVE:
@@ -67,6 +69,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_OPEN:
     {
+
       break;
     }
     case SYS_FILESIZE:
