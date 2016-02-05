@@ -20,6 +20,7 @@ void sys_create(struct intr_frame *f, void* stack_ptr);
 void sys_remove(struct intr_frame *f, void* stack_ptr);
 void sys_open(struct intr_frame *f, void* stack_ptr);
 void sys_write(struct intr_frame *f, void* stack_ptr);
+void sys_filesize(struct intr_frame *f, void* stack_ptr);
 
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
@@ -166,4 +167,15 @@ void sys_write(struct intr_frame* f, void* stack_ptr)
       }
       f->eax = orig_size;
     }
+}
+void sys_filesize(struct intr_frame* f, void* stack_ptr)
+{
+  struct thread* curr_thread =  thread_current();
+
+  //Get the file descriptor
+  unsigned fd = *((unsigned*)stack_ptr);
+
+  off_t size = file_length(curr_thread->open_files[fd]);
+
+  f->eax = size;
 }
