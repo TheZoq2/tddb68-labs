@@ -16,6 +16,11 @@ syscall_init (void)
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
+void sys_create(struct intr_frame *f, void* stack_ptr);
+void sys_remove(struct intr_frame *f, void* stack_ptr);
+void sys_open(struct intr_frame *f, void* stack_ptr);
+void sys_write(struct intr_frame *f, void* stack_ptr);
+
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
@@ -29,7 +34,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   stack_ptr += sizeof(void*);
 
-  struct thread* curr_thread =  thread_current();
 
 
   switch(syscall_id) 
@@ -54,48 +58,17 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_CREATE:
     {
-      //Fetch the filename and size
-      char* filename = *(char**)stack_ptr;
-      stack_ptr += sizeof(char*);
-      unsigned int size = *((unsigned int*)stack_ptr);
-
-      bool result = filesys_create(filename, size);
-
-      f->eax = result;
+      sys_create(f, stack_ptr);
       break;
     }
     case SYS_REMOVE:
     {
-      //Fetch the filename and size
-      char* filename = *(char**)stack_ptr;
-      stack_ptr += sizeof(char*);
-      unsigned int size = *((unsigned int*)stack_ptr);
-
-      bool result = filesys_remove(filename);
-
-      f->eax = result;
+      sys_remove(f, stack_ptr);
       break;
     }
     case SYS_OPEN:
     {
-      //Kod skriven tillsammans med Hannes Tukalla
-      char* filename = *(char**)stack_ptr;
-      int file_descriptor = -1;
-      struct file* opened_file = filesys_open(filename);
-
-      //Add the new file to the open_files of the thread
-      for(size_t i = MIN_FILE_ID; i < MAX_PROCESS_FILES; ++i)
-      {
-        //Is this slot is avalilable  for opening a file
-        if(curr_thread->open_files[i] == NULL)
-        {
-          curr_thread->open_files[i] = opened_file;
-          file_descriptor = i;
-          break;
-        }
-      }
-
-      f->eax = file_descriptor;
+      sys_open(f, stack_ptr);
       
       break;
     }
@@ -109,23 +82,8 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_WRITE:
     {
-      int fd = *((int*) stack_ptr);
-      stack_ptr += sizeof(int);
-      void* buffer = *((void**) stack_ptr);
-      stack_ptr += sizeof(void*);
-      unsigned size = *((unsigned*) stack_ptr);
+      sys_write(f, stack_ptr);
 
-      int orig_size = size;
-      if (fd == 1) {
-        while (size > 0) {
-          int size_to_push = size > 256 ? 256 : size;
-          putbuf(buffer, size_to_push);
-          size -= size_to_push;
-          buffer += size_to_push;
-        }
-        f->eax = orig_size;
-      }
-      
       break;
     }
     case SYS_SEEK:
@@ -143,4 +101,69 @@ syscall_handler (struct intr_frame *f UNUSED)
     default:
       break;
   }
+}
+
+void sys_create(struct intr_frame *f, void* stack_ptr)
+{
+  //Fetch the filename and size
+  char* filename = *(char**)stack_ptr;
+  stack_ptr += sizeof(char*);
+  unsigned int size = *((unsigned int*)stack_ptr);
+
+  bool result = filesys_create(filename, size);
+
+  f->eax = result;
+}
+void sys_remove(struct intr_frame* f, void* stack_ptr)
+{
+    //Fetch the filename and size
+    char* filename = *(char**)stack_ptr;
+    stack_ptr += sizeof(char*);
+    unsigned int size = *((unsigned int*)stack_ptr);
+
+    bool result = filesys_remove(filename);
+
+    f->eax = result;
+}
+void sys_open(struct intr_frame* f, void* stack_ptr)
+{
+  struct thread* curr_thread =  thread_current();
+
+  //Kod skriven tillsammans med Hannes Tukalla
+  char* filename = *(char**)stack_ptr;
+  int file_descriptor = -1;
+  struct file* opened_file = filesys_open(filename);
+
+  //Add the new file to the open_files of the thread
+  for(size_t i = MIN_FILE_ID; i < MAX_PROCESS_FILES; ++i)
+  {
+    //Is this slot is avalilable  for opening a file
+    if(curr_thread->open_files[i] == NULL)
+    {
+      curr_thread->open_files[i] = opened_file;
+      file_descriptor = i;
+      break;
+    }
+  }
+
+  f->eax = file_descriptor;
+}
+void sys_write(struct intr_frame* f, void* stack_ptr)
+{
+    int fd = *((int*) stack_ptr);
+    stack_ptr += sizeof(int);
+    void* buffer = *((void**) stack_ptr);
+    stack_ptr += sizeof(void*);
+    unsigned size = *((unsigned*) stack_ptr);
+
+    int orig_size = size;
+    if (fd == 1) {
+      while (size > 0) {
+        int size_to_push = size > 256 ? 256 : size;
+        putbuf(buffer, size_to_push);
+        size -= size_to_push;
+        buffer += size_to_push;
+      }
+      f->eax = orig_size;
+    }
 }
