@@ -218,6 +218,13 @@ load (const char *file_name, void (**eip) (void), void **esp)
   bool success = false;
   int i;
 
+
+  //Ensure that each of the file slots for the process are available
+  for(size_t i = 0; i < MAX_PROCESS_FILES; ++i)
+  {
+    t->open_files[i] = NULL;
+  }
+
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
