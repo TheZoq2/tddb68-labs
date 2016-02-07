@@ -6,7 +6,7 @@ int main(int argc, char** argv)
 {
     char* filename = "yolo";
 
-    create(filename, 100);
+    create(filename, 300);
     int file = open(filename);
 
     printf("Opened file: %i", file);

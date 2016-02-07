@@ -16,11 +16,18 @@ syscall_init (void)
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-void sys_create(struct intr_frame *f, void* stack_ptr);
-void sys_remove(struct intr_frame *f, void* stack_ptr);
-void sys_open(struct intr_frame *f, void* stack_ptr);
-void sys_write(struct intr_frame *f, void* stack_ptr);
-void sys_filesize(struct intr_frame *f, void* stack_ptr);
+void sys_create(struct intr_frame* f, void* stack_ptr);
+void sys_remove(struct intr_frame* f, void* stack_ptr);
+void sys_open(struct intr_frame* f, void* stack_ptr);
+void sys_write(struct intr_frame* f, void* stack_ptr);
+void sys_filesize(struct intr_frame* f, void* stack_ptr);
+void sys_close(struct intr_frame* f, void* stack_ptr);
+void sys_exit(struct intr_frame* f, void* stack_ptr);
+
+struct file* get_file(unsigned fd)
+{
+  return thread_current()->open_files[fd];
+}
 
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
@@ -36,7 +43,6 @@ syscall_handler (struct intr_frame *f UNUSED)
   stack_ptr += sizeof(void*);
 
 
-
   switch(syscall_id) 
   {
     case  SYS_HALT:
@@ -46,7 +52,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_EXIT:
     {
-      thread_exit();
+      sys_exit(f, stack_ptr);
       break;
     }
     case SYS_EXEC:
@@ -98,6 +104,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_CLOSE:
     {
+      sys_close(f, stack_ptr);
       break;
     }
     default:
@@ -116,6 +123,7 @@ void sys_create(struct intr_frame *f, void* stack_ptr)
 
   f->eax = result;
 }
+
 void sys_remove(struct intr_frame* f, void* stack_ptr)
 {
     //Fetch the filename and size
@@ -127,6 +135,7 @@ void sys_remove(struct intr_frame* f, void* stack_ptr)
 
     f->eax = result;
 }
+
 void sys_open(struct intr_frame* f, void* stack_ptr)
 {
   struct thread* curr_thread =  thread_current();
@@ -150,33 +159,69 @@ void sys_open(struct intr_frame* f, void* stack_ptr)
 
   f->eax = file_descriptor;
 }
+
 void sys_write(struct intr_frame* f, void* stack_ptr)
 {
-    int fd = *((int*) stack_ptr);
-    stack_ptr += sizeof(int);
-    void* buffer = *((void**) stack_ptr);
-    stack_ptr += sizeof(void*);
-    unsigned size = *((unsigned*) stack_ptr);
+  int fd = *((int*) stack_ptr);
+  stack_ptr += sizeof(int*);
+  void* buffer = *((void**) stack_ptr);
+  stack_ptr += sizeof(void*);
+  unsigned size = *((unsigned*) stack_ptr);
 
-    int orig_size = size;
-    if (fd == 1) {
-      while (size > 0) {
-        int size_to_push = size > 256 ? 256 : size;
-        putbuf(buffer, size_to_push);
-        size -= size_to_push;
-        buffer += size_to_push;
-      }
-      f->eax = orig_size;
+  int orig_size = size;
+  if (fd == 1) {
+    while (size > 0) {
+      int size_to_push = size > 256 ? 256 : size;
+      putbuf(buffer, size_to_push);
+      size -= size_to_push;
+      buffer += size_to_push;
     }
+    f->eax = orig_size;
+  }
 }
+
+//aparently not required for assignment, will fail if fd is invalid
 void sys_filesize(struct intr_frame* f, void* stack_ptr)
 {
-  struct thread* curr_thread =  thread_current();
-
   //Get the file descriptor
   unsigned fd = *((unsigned*)stack_ptr);
 
-  off_t size = file_length(curr_thread->open_files[fd]);
+  off_t size = file_length(get_file(fd));
 
   f->eax = size;
+}
+
+void sys_close(struct intr_frame* f, void* stack_ptr)
+{
+  //Get the file descriptor
+  unsigned fd = *((unsigned*)stack_ptr);
+  if(fd > 1 && fd < MAX_PROCESS_FILES)
+  {
+    struct file* file_to_close = get_file(fd);
+
+    //The file was already closed (or never opened)
+    if(file_to_close != NULL)
+    {
+      file_close(file_to_close);
+
+      //Reset the pointer to the file (file_close takes care of freeing the memory)
+      thread_current()->open_files[fd] = NULL;
+    }
+  }
+}
+
+void sys_exit(struct intr_frame* f, void* stack_ptr)
+{
+  //Go through all the open files and close them
+  struct thread* curr_thread = thread_current();
+
+  for(unsigned i = 2; i < MAX_PROCESS_FILES; ++i)
+  {
+    if(curr_thread->open_files[i] != NULL)
+    {
+      file_close(curr_thread->open_files[i]);
+    }
+  }
+  
+  thread_exit();
 }
