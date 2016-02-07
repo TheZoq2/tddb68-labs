@@ -6,7 +6,7 @@ SRCDIR = ..
 PROGS = cat cmp cp echo halt hex-dump ls mcat mcp mkdir pwd rm hello shell touch \
 	bubsort insult lineup matmult recursor \
 	sumargv lab2test lab1test pfs pfs_reader pfs_writer dummy longrun \
-	child parent create-bad
+	child parent create-bad files
 
 # Added test programs
 sumargv_SRC = sumargv.c
@@ -36,6 +36,7 @@ rm_SRC = rm.c
 hello_SRC = hello.c
 
 touch_SRC = touch.c
+files_SRC = files.c
 
 # Should work in project 3; also in project 4 if VM is included.
 bubsort_SRC = bubsort.c
