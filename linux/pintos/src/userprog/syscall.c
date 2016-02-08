@@ -16,14 +16,6 @@ syscall_init (void)
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
-void sys_create(struct intr_frame* f, void* stack_ptr);
-void sys_remove(struct intr_frame* f, void* stack_ptr);
-void sys_open(struct intr_frame* f, void* stack_ptr);
-void sys_write(struct intr_frame* f, void* stack_ptr);
-void sys_filesize(struct intr_frame* f, void* stack_ptr);
-void sys_close(struct intr_frame* f, void* stack_ptr);
-void sys_exit(struct intr_frame* f, void* stack_ptr);
-
 struct file* get_file(unsigned fd)
 {
   return thread_current()->open_files[fd];
@@ -86,6 +78,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_READ:
     {
+      sys_read(f, stack_ptr);
       break;
     }
     case SYS_WRITE:
@@ -126,14 +119,13 @@ void sys_create(struct intr_frame *f, void* stack_ptr)
 
 void sys_remove(struct intr_frame* f, void* stack_ptr)
 {
-    //Fetch the filename and size
-    char* filename = *(char**)stack_ptr;
-    stack_ptr += sizeof(char*);
-    unsigned int size = *((unsigned int*)stack_ptr);
+  //Fetch the filename and size
+  char* filename = *(char**)stack_ptr;
+  stack_ptr += sizeof(char*);
 
-    bool result = filesys_remove(filename);
+  bool result = filesys_remove(filename);
 
-    f->eax = result;
+  f->eax = result;
 }
 
 void sys_open(struct intr_frame* f, void* stack_ptr)
@@ -169,7 +161,7 @@ void sys_write(struct intr_frame* f, void* stack_ptr)
   unsigned size = *((unsigned*) stack_ptr);
 
   int orig_size = size;
-  if (fd == 1) {
+  if (fd == STDOUT_FILENO) {
     while (size > 0) {
       int size_to_push = size > 256 ? 256 : size;
       putbuf(buffer, size_to_push);
@@ -185,6 +177,36 @@ void sys_write(struct intr_frame* f, void* stack_ptr)
     if(file_to_write != NULL)
     {
       f->eax = file_write(file_to_write, buffer, size);
+    }
+    else
+    {
+      f->eax = -1;
+    }
+  }
+}
+void sys_read(struct intr_frame* f, void* stack_ptr)
+{
+  int fd = *((int*) stack_ptr);
+  stack_ptr += sizeof(int*);
+  void* buffer = *((void**) stack_ptr);
+  stack_ptr += sizeof(void*);
+  unsigned size = *((unsigned*) stack_ptr);
+
+  int orig_size = size;
+  if (fd == 0) {
+    //TODO: Implement
+    f->eax = orig_size;
+  }
+  else
+  {
+    struct file* file_to_read = get_file(fd);
+
+    if(file_to_read != NULL)
+    {
+      unsigned amount_read = file_read(file_to_read, buffer, size);
+
+      printf("%s, %i\n", buffer, amount_read);
+      f->eax = amount_read;
     }
     else
     {
