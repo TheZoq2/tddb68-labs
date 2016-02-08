@@ -178,6 +178,19 @@ void sys_write(struct intr_frame* f, void* stack_ptr)
     }
     f->eax = orig_size;
   }
+  else
+  {
+    struct file* file_to_write = get_file(fd);
+
+    if(file_to_write != NULL)
+    {
+      f->eax = file_write(file_to_write, buffer, size);
+    }
+    else
+    {
+      f->eax = -1;
+    }
+  }
 }
 
 //aparently not required for assignment, will fail if fd is invalid

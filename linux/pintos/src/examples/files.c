@@ -9,9 +9,11 @@ int main(int argc, char** argv)
     create(filename, 300);
     int file = open(filename);
 
-    printf("Opened file: %i", file);
+    printf("Opened file: %i\n", file);
 
-    printf("Filesize: %i", filesize(file));
+    printf("Filesize: %i\n", filesize(file));
 
-    remove(filename);
+    printf("Wrote %i bytes\n", write(file, "#Yolo", 5));
+
+    //remove(filename);
 }
