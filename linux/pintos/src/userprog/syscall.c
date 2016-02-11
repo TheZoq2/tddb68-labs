@@ -131,23 +131,25 @@ void sys_remove(struct intr_frame* f, void* stack_ptr)
 
 void sys_open(struct intr_frame* f, void* stack_ptr)
 {
-  struct thread* curr_thread =  thread_current();
+  struct thread* curr_thread = thread_current();
 
   //Kod skriven tillsammans med Hannes Tukalla
   char* filename = *(char**)stack_ptr;
   int file_descriptor = -1;
   struct file* opened_file = filesys_open(filename);
 
-  size_t i;
-  //Add the new file to the open_files of the thread
-  for(i = MIN_FILE_ID; i < MAX_PROCESS_FILES; ++i)
-  {
-    //Is this slot is avalilable  for opening a file
-    if(curr_thread->open_files[i] == NULL)
+  if (opened_file != NULL) {
+    size_t i;
+    //Add the new file to the open_files of the thread
+    for(i = MIN_FILE_ID; i < MAX_PROCESS_FILES; ++i)
     {
-      curr_thread->open_files[i] = opened_file;
-      file_descriptor = i;
-      break;
+      //Is this slot is avalilable  for opening a file
+      if(curr_thread->open_files[i] == NULL)
+      {
+        curr_thread->open_files[i] = opened_file;
+        file_descriptor = i;
+        break;
+      }
     }
   }
 
@@ -186,6 +188,7 @@ void sys_write(struct intr_frame* f, void* stack_ptr)
     }
   }
 }
+
 void sys_read(struct intr_frame* f, void* stack_ptr)
 {
   int fd = *((int*) stack_ptr);
