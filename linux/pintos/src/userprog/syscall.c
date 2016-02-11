@@ -191,7 +191,7 @@ void sys_read(struct intr_frame* f, void* stack_ptr)
   int fd = *((int*) stack_ptr);
   stack_ptr += sizeof(int*);
   uint8_t* buffer = *((uint8_t**) stack_ptr);
-  stack_ptr += sizeof(void*);
+  stack_ptr += sizeof(uint8_t*);
   unsigned size = *((unsigned*) stack_ptr);
 
   int orig_size = size;
