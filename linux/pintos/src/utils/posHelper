@@ -9,5 +9,7 @@ elif [ $1 == 'format' ]; then
     pintos -v --qemu -- -f -q
 elif [ $1 == 'cp' ]; then
     pintos -v --qemu -p $2 -a $3 -- -q
+elif [ $1 == 'cpex' ]; then
+    posHelper cp ../../examples/$2 $2
 fi
 

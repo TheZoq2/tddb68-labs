@@ -194,7 +194,7 @@ void sys_read(struct intr_frame* f, void* stack_ptr)
   int fd = *((int*) stack_ptr);
   stack_ptr += sizeof(int*);
   uint8_t* buffer = *((uint8_t**) stack_ptr);
-  stack_ptr += sizeof(void*);
+  stack_ptr += sizeof(uint8_t*);
   unsigned size = *((unsigned*) stack_ptr);
 
   int orig_size = size;
@@ -203,7 +203,9 @@ void sys_read(struct intr_frame* f, void* stack_ptr)
     size_t read = 0;
     while (read < size) {
       ((uint8_t*) buffer)[read] = input_getc();
+      read++;
     }
+
     f->eax = orig_size;
   }
   else

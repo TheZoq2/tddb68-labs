@@ -220,7 +220,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
 
   size_t j;
   //Ensure that each of the file slots for the process are available
-  for(j = 0; i < MAX_PROCESS_FILES; ++j)
+  for(j = 0; j < MAX_PROCESS_FILES; ++j)
   {
     t->open_files[j] = NULL;
   }
