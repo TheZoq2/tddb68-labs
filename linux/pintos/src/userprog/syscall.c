@@ -213,7 +213,6 @@ void sys_read(struct intr_frame* f, void* stack_ptr)
     {
       unsigned amount_read = file_read(file_to_read, buffer, size);
 
-      printf("%s, %i\n", buffer, amount_read);
       f->eax = amount_read;
     }
     else

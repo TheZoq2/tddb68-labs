@@ -96,6 +96,8 @@ int main(void)
 	
   write(STDOUT_FILENO, test7, strlen(test7));
   file[2] = open("fdsfa");
+
+  printf("file2 %i\n", file[2]);
   if(file[2] > 1){
     printf(sbuf, "Got file handle when opening non-existing file\n");
     write(STDOUT_FILENO, sbuf, strlen(sbuf));
