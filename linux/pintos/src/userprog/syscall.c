@@ -5,6 +5,7 @@
 #include "threads/thread.h"
 #include "threads/init.h"
 #include "filesys/filesys.h"
+#include "devices/input.h"
 
 #define MIN_FILE_ID 2
 
@@ -44,7 +45,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_EXIT:
     {
-      sys_exit(f, stack_ptr);
+      sys_exit();
       break;
     }
     case SYS_EXEC:
@@ -97,7 +98,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_CLOSE:
     {
-      sys_close(f, stack_ptr);
+      sys_close(stack_ptr);
       break;
     }
     default:
@@ -137,8 +138,9 @@ void sys_open(struct intr_frame* f, void* stack_ptr)
   int file_descriptor = -1;
   struct file* opened_file = filesys_open(filename);
 
+  size_t i;
   //Add the new file to the open_files of the thread
-  for(size_t i = MIN_FILE_ID; i < MAX_PROCESS_FILES; ++i)
+  for(i = MIN_FILE_ID; i < MAX_PROCESS_FILES; ++i)
   {
     //Is this slot is avalilable  for opening a file
     if(curr_thread->open_files[i] == NULL)
@@ -188,13 +190,17 @@ void sys_read(struct intr_frame* f, void* stack_ptr)
 {
   int fd = *((int*) stack_ptr);
   stack_ptr += sizeof(int*);
-  void* buffer = *((void**) stack_ptr);
+  uint8_t* buffer = *((uint8_t**) stack_ptr);
   stack_ptr += sizeof(void*);
   unsigned size = *((unsigned*) stack_ptr);
 
   int orig_size = size;
-  if (fd == 0) {
-    //TODO: Implement
+  if (fd == STDIN_FILENO) {
+    // Read size characters from the keyboard
+    size_t read = 0;
+    while (read < size) {
+      ((uint8_t*) buffer)[read] = input_getc();
+    }
     f->eax = orig_size;
   }
   else
@@ -226,7 +232,7 @@ void sys_filesize(struct intr_frame* f, void* stack_ptr)
   f->eax = size;
 }
 
-void sys_close(struct intr_frame* f, void* stack_ptr)
+void sys_close(void* stack_ptr)
 {
   //Get the file descriptor
   unsigned fd = *((unsigned*)stack_ptr);
@@ -245,12 +251,13 @@ void sys_close(struct intr_frame* f, void* stack_ptr)
   }
 }
 
-void sys_exit(struct intr_frame* f, void* stack_ptr)
+void sys_exit(void)
 {
   //Go through all the open files and close them
   struct thread* curr_thread = thread_current();
 
-  for(unsigned i = 2; i < MAX_PROCESS_FILES; ++i)
+  unsigned i;
+  for(i = 2; i < MAX_PROCESS_FILES; ++i)
   {
     if(curr_thread->open_files[i] != NULL)
     {
