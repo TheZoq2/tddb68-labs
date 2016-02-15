@@ -25,16 +25,10 @@ struct file* get_file(unsigned fd)
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
 {
-  //printf ("system call!\n");
-
-  int syscall_id = *((int*)f->esp); //Stack points to the address after the stack 
-
+  int syscall_id = *((int*)f->esp);
   void* stack_ptr = f->esp;
-  
-  //printf("sycall id: %i\n", syscall_id);
 
   stack_ptr += sizeof(void*);
-
 
   switch(syscall_id) 
   {
