@@ -210,7 +210,6 @@ void sys_read(struct intr_frame* f, void* stack_ptr)
     {
       unsigned amount_read = file_read(file_to_read, buffer, size);
 
-      printf("%s, %i\n", buffer, amount_read);
       f->eax = amount_read;
     }
     else
@@ -252,17 +251,5 @@ void sys_close(void* stack_ptr)
 
 void sys_exit(void)
 {
-  //Go through all the open files and close them
-  struct thread* curr_thread = thread_current();
-
-  unsigned i;
-  for(i = 2; i < MAX_PROCESS_FILES; ++i)
-  {
-    if(curr_thread->open_files[i] != NULL)
-    {
-      file_close(curr_thread->open_files[i]);
-    }
-  }
-  
   thread_exit();
 }
