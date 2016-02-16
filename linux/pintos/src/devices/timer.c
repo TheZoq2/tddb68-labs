@@ -29,11 +29,11 @@ static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 
-struct thread_sleep_queue {
+struct sleeping_thread {
   struct list_item elem;
 
   int64_t time_to_wake_up;
-  struct lock* thread_lock;
+  struct semaphore thread_lock;
 };
 
 struct list sleep_queue;
@@ -111,8 +111,14 @@ timer_sleep (int64_t ticks)
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
-  while (timer_elapsed (start) < ticks) 
-    thread_yield ();
+
+  struct sleeping_thread sleeping;
+  sema_init(&sleeping.thread_lock, 0);
+  sleeping.time_to_wake_up = start + ticks;
+  list_insert_ordered();
+
+  // Sleep
+  sema_down(&sleeping.thread_lock);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
