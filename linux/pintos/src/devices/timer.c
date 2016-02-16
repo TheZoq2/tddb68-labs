@@ -125,10 +125,15 @@ timer_sleep (int64_t ticks)
   struct sleeping_thread sleeping;
   sema_init(&sleeping.thread_lock, 0);
   sleeping.time_to_wake_up = start + ticks;
+
+
+  int old_level = intr_disable();
   list_insert_ordered(&sleep_queue, (struct list_elem*)&sleeping, sleep_less, NULL);
+  intr_set_level(old_level);
 
   // Sleep
   sema_down(&sleeping.thread_lock);
+
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -166,11 +171,16 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   thread_tick ();
 
+  int old_level = intr_disable();
   struct sleeping_thread* first_thread = (struct sleeping_thread*)list_begin(&sleep_queue);
-  if (first_thread->time_to_wake_up >= ticks) {
+
+  while (first_thread != NULL && first_thread->time_to_wake_up >= ticks) {
     sema_up(&first_thread->thread_lock);
     list_pop_front(&sleep_queue);
+
+    first_thread = (struct sleeping_thread*)list_begin(&sleep_queue);
   }
+  intr_set_level(old_level);
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
