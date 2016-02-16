@@ -165,6 +165,12 @@ timer_interrupt (struct intr_frame *args UNUSED)
 {
   ticks++;
   thread_tick ();
+
+  struct sleeping_thread* first_thread = (struct sleeping_thread*)list_begin(&sleep_queue);
+  if (first_thread->time_to_wake_up >= ticks) {
+    sema_up(&first_thread->thread_lock);
+    list_pop_front(&sleep_queue);
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
