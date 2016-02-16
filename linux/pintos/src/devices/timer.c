@@ -30,7 +30,7 @@ static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 
 struct sleeping_thread {
-  struct list_item elem;
+  struct list_elem elem;
 
   int64_t time_to_wake_up;
   struct semaphore thread_lock;
@@ -104,6 +104,16 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
+bool sleep_less(const struct list_elem *a,
+                const struct list_elem *b,
+                void *aux)
+{
+  const struct sleeping_thread* thread_a = (const struct sleeping_thread*)a;
+  const struct sleeping_thread* thread_b = (const struct sleeping_thread*)b;
+
+  return thread_a->time_to_wake_up < thread_b->time_to_wake_up;
+}
+
 /* Suspends execution for approximately TICKS timer ticks. */
 void
 timer_sleep (int64_t ticks) 
@@ -115,7 +125,7 @@ timer_sleep (int64_t ticks)
   struct sleeping_thread sleeping;
   sema_init(&sleeping.thread_lock, 0);
   sleeping.time_to_wake_up = start + ticks;
-  list_insert_ordered();
+  list_insert_ordered(&sleep_queue, (struct list_elem*)&sleeping, sleep_less, NULL);
 
   // Sleep
   sema_down(&sleeping.thread_lock);
