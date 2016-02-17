@@ -177,7 +177,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
     first_thread = list_entry(list_begin(&sleep_queue), struct sleeping_thread, elem);
 
     // Wake up all threads that should be woken up
-    if (first_thread->time_to_wake_up < ticks)
+    if (first_thread->time_to_wake_up < timer_ticks())
       break;
 
     sema_up(&first_thread->thread_lock);
