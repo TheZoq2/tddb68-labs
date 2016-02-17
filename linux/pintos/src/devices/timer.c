@@ -110,7 +110,7 @@ bool sleep_time_compare(const struct list_elem *a, const struct list_elem *b, vo
 {
   struct sleeping_thread* thread_a = list_entry(a, struct sleeping_thread, elem);
   struct sleeping_thread* thread_b = list_entry(b, struct sleeping_thread, elem);
-  return thread_a->time_to_wake_up < thread_b->time_to_wake_up;
+  return thread_a->time_to_wake_up <= thread_b->time_to_wake_up;
 }
 
 /* Suspends execution for approximately TICKS timer ticks. */
@@ -120,6 +120,10 @@ timer_sleep (int64_t ticks)
   int64_t start = timer_ticks ();
 
   ASSERT (intr_get_level () == INTR_ON);
+
+  // Only sleep a positive number of ticks
+  if (ticks <= 0)
+    return;
 
   struct sleeping_thread sleeping;
   sema_init(&sleeping.thread_lock, 0);
@@ -177,7 +181,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
     first_thread = list_entry(list_begin(&sleep_queue), struct sleeping_thread, elem);
 
     // Wake up all threads that should be woken up
-    if (first_thread->time_to_wake_up < timer_ticks())
+    if (timer_ticks() < first_thread->time_to_wake_up)
       break;
 
     sema_up(&first_thread->thread_lock);
