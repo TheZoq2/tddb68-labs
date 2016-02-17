@@ -10,7 +10,7 @@ struct list_item
 void append(struct list_item *first, int x) /* puts x at the end of the list */
 {
     struct list_item* current = first;
-    
+ 
     while(current->next != NULL)
     {
         current = current->next;
