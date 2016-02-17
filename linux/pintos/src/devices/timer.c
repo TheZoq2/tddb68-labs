@@ -108,9 +108,8 @@ bool sleep_less(const struct list_elem *a,
                 const struct list_elem *b,
                 void *aux)
 {
-  const struct sleeping_thread* thread_a = (const struct sleeping_thread*)a;
-  const struct sleeping_thread* thread_b = (const struct sleeping_thread*)b;
-
+  struct sleeping_thread* thread_a = list_entry(a, struct sleeping_thread, elem);
+  struct sleeping_thread* thread_b = list_entry(b, struct sleeping_thread, elem);
   return thread_a->time_to_wake_up < thread_b->time_to_wake_up;
 }
 
@@ -128,7 +127,7 @@ timer_sleep (int64_t ticks)
 
 
   int old_level = intr_disable();
-  list_insert_ordered(&sleep_queue, (struct list_elem*)&sleeping, sleep_less, NULL);
+  list_insert_ordered(&sleep_queue, &sleeping.elem, sleep_less, NULL);
   intr_set_level(old_level);
 
   // Sleep
@@ -172,14 +171,19 @@ timer_interrupt (struct intr_frame *args UNUSED)
   thread_tick ();
 
   int old_level = intr_disable();
-  struct sleeping_thread* first_thread = (struct sleeping_thread*)list_begin(&sleep_queue);
 
-  while (first_thread != NULL && first_thread->time_to_wake_up >= ticks) {
+  struct sleeping_thread* first_thread;
+  while (!list_empty(&sleep_queue)) {
+    first_thread = list_entry(list_begin(&sleep_queue), struct sleeping_thread, elem);
+
+    // Wake up all threads that should be woken up
+    if (first_thread->time_to_wake_up < ticks)
+      break;
+
     sema_up(&first_thread->thread_lock);
     list_pop_front(&sleep_queue);
-
-    first_thread = (struct sleeping_thread*)list_begin(&sleep_queue);
   }
+
   intr_set_level(old_level);
 }
 
