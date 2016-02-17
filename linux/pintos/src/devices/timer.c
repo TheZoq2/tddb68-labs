@@ -29,6 +29,8 @@ static bool too_many_loops (unsigned loops);
 static void busy_wait (int64_t loops);
 static void real_time_sleep (int64_t num, int32_t denom);
 
+bool sleep_time_compare(const struct list_elem *a, const struct list_elem *b, void *aux);
+
 struct sleeping_thread {
   struct list_elem elem;
 
@@ -104,9 +106,7 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
-bool sleep_less(const struct list_elem *a,
-                const struct list_elem *b,
-                void *aux)
+bool sleep_time_compare(const struct list_elem *a, const struct list_elem *b, void *aux)
 {
   struct sleeping_thread* thread_a = list_entry(a, struct sleeping_thread, elem);
   struct sleeping_thread* thread_b = list_entry(b, struct sleeping_thread, elem);
@@ -126,8 +126,8 @@ timer_sleep (int64_t ticks)
   sleeping.time_to_wake_up = start + ticks;
 
 
-  int old_level = intr_disable();
-  list_insert_ordered(&sleep_queue, &sleeping.elem, sleep_less, NULL);
+  enum intr_level old_level = intr_disable();
+  list_insert_ordered(&sleep_queue, &sleeping.elem, sleep_time_compare, NULL);
   intr_set_level(old_level);
 
   // Sleep
@@ -170,7 +170,7 @@ timer_interrupt (struct intr_frame *args UNUSED)
   ticks++;
   thread_tick ();
 
-  int old_level = intr_disable();
+  enum intr_level old_level = intr_disable();
 
   struct sleeping_thread* first_thread;
   while (!list_empty(&sleep_queue)) {
