@@ -136,7 +136,6 @@ timer_sleep (int64_t ticks)
 
   // Sleep
   sema_down(&sleeping.thread_lock);
-
 }
 
 /* Suspends execution for approximately MS milliseconds. */
