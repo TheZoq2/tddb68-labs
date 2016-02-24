@@ -44,6 +44,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_EXEC:
     {
+      process_execute(f, stack_ptr);
       break;
     }
     case SYS_WAIT:
@@ -252,4 +253,12 @@ void sys_close(void* stack_ptr)
 void sys_exit(void)
 {
   thread_exit();
+}
+
+void sys_exec(struct intr_frame* f, void* stack_ptr)
+{
+  char* parameters = *((char**) stack_ptr);
+  stack_ptr += sizeof(char**);
+
+  process_execute(parameters);
 }

@@ -20,6 +20,7 @@ void sys_read(struct intr_frame* f, void* stack_ptr);
 void sys_filesize(struct intr_frame* f, void* stack_ptr);
 void sys_close(void* stack_ptr);
 void sys_exit(void);
+void sys_exec(struct intr_frame* f, void* stack_ptr);
 struct file* get_file(unsigned fd);
 
 #endif /* userprog/syscall.h */
