@@ -448,6 +448,13 @@ init_thread (struct thread *t, const char *name, int priority)
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+
+  init_list(t->children);
+  t->parent = NULL;
+  int wait_pid = -1;
+
+  sema_init(&sema_pregnant);
+  sema_init(&sema_process_wait)
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

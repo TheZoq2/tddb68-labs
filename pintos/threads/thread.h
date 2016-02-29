@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -18,6 +19,7 @@ enum thread_status
    You can redefine this to whatever type you like. */
 typedef int tid_t;
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
+#define TID_NO_WAIT ((tid_t) -2)
 
 /* Thread priorities. */
 #define PRI_MIN 0                       /* Lowest priority. */
@@ -25,6 +27,15 @@ typedef int tid_t;
 #define PRI_MAX 63                      /* Highest priority. */
 
 #define MAX_PROCESS_FILES 128
+
+
+struct child_process
+{
+  struct list_elem elem;
+
+  tid_t tid;
+  struct thread* parent;
+};
 
 /* A kernel thread or user process.
 
@@ -93,6 +104,15 @@ struct thread
 
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
+
+    struct thread* parent;
+
+    tid_t wait_pid; //The PID of the thread currently waited for
+    struct semaphore sema_process_wait;
+
+    struct semaphore sema_pregnant;
+
+    struct list children;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
