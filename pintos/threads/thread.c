@@ -11,6 +11,8 @@
 #include "threads/switch.h"
 #include "threads/synch.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
+#include "filesys/file.h"
 #ifdef USERPROG
 #include "userprog/process.h"
 #endif
@@ -198,6 +200,20 @@ thread_create (const char *name, int priority,
   return tid;
 }
 
+void add_child_process(struct thread* parent, struct thread* child)
+{
+  struct child_status* cs = malloc(sizeof(struct child_status));
+
+  cs->parent = parent;
+  cs->child = child;
+  cs->child_tid = child->tid;
+  
+  cs->refs = 2;
+
+  child->parent_child_status = cs;
+  list_push_back(&parent->children, &cs->elem);
+}
+
 /* Puts the current thread to sleep.  It will not be scheduled
    again until awoken by thread_unblock().
 
@@ -269,6 +285,17 @@ thread_tid (void)
   return thread_current ()->tid;
 }
 
+void try_free_parent_child_struct(struct child_status* pc)
+{
+  --pc->refs;
+
+  //The status is not used anywhere else, free the memory
+  if(pc->refs == 0)
+  {
+    free(pc);
+  }
+}
+
 /* Deschedules the current thread and destroys it.  Never
    returns to the caller. */
 void
@@ -276,11 +303,11 @@ thread_exit (void)
 {
   ASSERT (!intr_context ());
 
+  struct thread* curr_thread = thread_current();
 #ifdef USERPROG
   process_exit ();
 
   //Go through all the open files and close them
-  struct thread* curr_thread = thread_current();
 
   unsigned i;
   for(i = 2; i < MAX_PROCESS_FILES; ++i)
@@ -291,6 +318,20 @@ thread_exit (void)
     }
   }
 #endif
+
+  //Free the status struct 
+  try_free_parent_child_struct(curr_thread->parent_child_status);
+
+  //Free the list of child process statuses if they have exited
+  struct list_elem* curr_elem = list_begin(&curr_thread->children);
+
+  while(curr_elem != NULL)
+  {
+    struct child_exit_status* cs = list_entry(curr_elem, struct child_status, elem);
+
+
+    try_free_parent_child_struct(cs);
+  }
 
   /* Just set our status to dying and schedule another process.
      We will be destroyed during the call to schedule_tail(). */
@@ -449,12 +490,11 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
 
-  init_list(t->children);
-  t->parent = NULL;
+  list_init(&t->children);
   int wait_pid = -1;
 
-  sema_init(&sema_pregnant);
-  sema_init(&sema_process_wait)
+  sema_init(&t->sema_pregnant, 0);
+  sema_init(&t->sema_process_wait, 0);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

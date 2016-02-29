@@ -29,13 +29,21 @@ typedef int tid_t;
 #define MAX_PROCESS_FILES 128
 
 
-struct child_process
+struct child_status
 {
   struct list_elem elem;
 
-  tid_t tid;
   struct thread* parent;
+  struct thread* child;
+
+  tid_t child_tid;
+
+  int exit_status;
+
+  int refs;
 };
+
+void try_free_parent_child_struct(struct child_status* pc);
 
 /* A kernel thread or user process.
 
@@ -105,13 +113,19 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-    struct thread* parent;
+    struct child_status* parent_child_status;
 
     tid_t wait_pid; //The PID of the thread currently waited for
+
+    /*
+      If the thread is waiting for a child thread, it will sema down(?) this semaphore wich will be 0. 
+      When the child thread being waited for exits, it should sema_up this semaphore
+    */
     struct semaphore sema_process_wait;
 
     struct semaphore sema_pregnant;
 
+    //List of child threads for this thread.
     struct list children;
 
 #ifdef USERPROG
