@@ -6,6 +6,7 @@
 #include "threads/init.h"
 #include "filesys/filesys.h"
 #include "devices/input.h"
+#include "userprog/process.h"
 
 #define MIN_FILE_ID 2
 
@@ -44,7 +45,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_EXEC:
     {
-      process_execute(f, stack_ptr);
+      sys_exec(f, stack_ptr);
       break;
     }
     case SYS_WAIT:
