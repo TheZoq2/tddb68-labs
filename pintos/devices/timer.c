@@ -101,7 +101,7 @@ timer_ticks (void)
 /* Returns the number of timer ticks elapsed since THEN, which
    should be a value once returned by timer_ticks(). */
 int64_t
-timer_elapsed (int64_t then) 
+timer_elapsed (int64_t then)
 {
   return timer_ticks () - then;
 }
@@ -110,12 +110,12 @@ bool sleep_time_compare(const struct list_elem *a, const struct list_elem *b, vo
 {
   struct sleeping_thread* thread_a = list_entry(a, struct sleeping_thread, elem);
   struct sleeping_thread* thread_b = list_entry(b, struct sleeping_thread, elem);
-  return thread_a->time_to_wake_up <= thread_b->time_to_wake_up;
+  return thread_a->time_to_wake_up < thread_b->time_to_wake_up;
 }
 
 /* Suspends execution for approximately TICKS timer ticks. */
 void
-timer_sleep (int64_t ticks) 
+timer_sleep (int64_t ticks)
 {
   int64_t start = timer_ticks ();
 
