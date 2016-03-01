@@ -153,7 +153,6 @@ void* push_args_to_stack(struct list* argv, int argc, void* stack_pointer)
 static void
 start_process (void *file_name_)
 {
-  printf("at start\n");
   char *command = file_name_;
   //char* file_name = file_name_;
   struct intr_frame if_;
@@ -179,8 +178,6 @@ start_process (void *file_name_)
   palloc_free_page (file_name_);
   if (!success)
     thread_exit ();
-
-  printf("start worked\n");
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
