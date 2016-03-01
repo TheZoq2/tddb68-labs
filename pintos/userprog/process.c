@@ -22,6 +22,9 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
+bool parse_args(struct list* argv, int* argc, const char* command, void** stack_pointer);
+void* push_args_to_stack(struct list* argv, int argc, void* stack_pointer);
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -52,6 +55,83 @@ struct arg_list_elem {
   void* addr;
 };
 
+bool parse_args(struct list* argv, int* argc, const char* command, void** stack_pointer)
+{
+  int arg_start = 0;
+  int arg_end = 0;
+  char new_char;
+  do
+  {
+    new_char = command[arg_end];
+    if (new_char == ' ' || new_char == '\0')
+    {
+      int arg_len = arg_end - arg_start;
+      if (arg_len > 0)
+      {
+        // The first argument is the filename
+        if (arg_start == 0) {
+          char file_name[256];
+          strlcpy(file_name, command, arg_len + 1);
+          bool success = load(file_name, *stack_pointer, stack_pointer);
+          if (!success)
+            return false;
+        }
+
+        // Push the argument to the stack
+        stack_pointer -= arg_len + 1;
+        strlcpy(*stack_pointer, &command[arg_start], arg_len + 1);
+
+        struct arg_list_elem* new_arg = malloc(sizeof(struct arg_list_elem));
+        new_arg->addr = stack_pointer;
+        list_push_front(argv, &new_arg->elem);
+
+        arg_start = arg_end + 1;
+
+        (*argc)++;
+      }
+    }
+    arg_end++;
+  } while (new_char != '\0');
+  return true;
+}
+
+void* push_args_to_stack(struct list* argv, int argc, void* stack_pointer)
+{
+  // Word align stack pointer
+  int stack_pointer_misalign = (int)stack_pointer % 4;
+  if (stack_pointer_misalign != 0)
+    stack_pointer -= 4 - stack_pointer_misalign;
+
+  // Push extra null pointer to end of argv
+  stack_pointer -= sizeof(char*);
+  *((char**)stack_pointer) = NULL;
+
+  // Push argv to stack
+  while(!list_empty(argv))
+  {
+    struct list_elem* e = list_pop_front(argv);
+    struct arg_list_elem *arg = list_entry(e, struct arg_list_elem, elem);
+
+    stack_pointer -= sizeof(char*);
+    *((char**)stack_pointer) = arg->addr;
+
+    free(arg);
+  }
+  // Push argv pointer to stack
+  stack_pointer -= sizeof(char*);
+  *((char**)stack_pointer) = stack_pointer + sizeof(char**);
+
+  // Push argc to stack
+  stack_pointer -= sizeof(int);
+  *((int*)stack_pointer) = argc;
+
+  // Push fake return address to stack
+  stack_pointer -= sizeof(void*);
+  *((void**)stack_pointer) = NULL;
+
+  return stack_pointer;
+}
+
 /* A thread function that loads a user process and starts it
    running. */
 static void
@@ -68,85 +148,15 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
 
-  int arg_start = 0;
-
   struct list argv;
   list_init(&argv);
-  int argc = 0;
 
   // Parse command to find all arguments
-  char new_char;
-  void* stack_pointer = NULL;
-  int arg_end = 0;
-  do
-  {
-    new_char = command[arg_end];
-    if (new_char == ' ' || new_char == '\0')
-    {
-      int arg_len = arg_end - arg_start;
-      if (arg_len > 0)
-      {
-        // The first argument is the filename
-        if (arg_start == 0) {
-          char file_name[256];
-          strlcpy(file_name, command, arg_len + 1);
-          success = load(file_name, &if_.eip, &if_.esp);
-          stack_pointer = if_.esp;
-        }
+  int argc = 0;
+  success = parse_args(&argv, &argc, command, &if_.esp);
 
-        if (success) {
-          // Push the argument to the stack
-          stack_pointer -= arg_len + 1;
-          strlcpy(stack_pointer, &command[arg_start], arg_len + 1);
-
-          struct arg_list_elem* new_arg = malloc(sizeof(struct arg_list_elem));
-          new_arg->addr = stack_pointer;
-          list_push_front(&argv, &new_arg->elem);
-
-          arg_start = arg_end + 1;
-
-          argc++;
-        }
-      }
-    }
-    arg_end++;
-  } while (success && new_char != '\0');
-
-  if (success) {
-    // Word align stack pointer
-    int stack_pointer_misalign = (int)stack_pointer % 4;
-    if (stack_pointer_misalign != 0)
-      stack_pointer -= 4 - stack_pointer_misalign;
-
-    // Push extra null pointer to end of argv
-    stack_pointer -= sizeof(char*);
-    *((char**)stack_pointer) = NULL;
-
-    // Push argv to stack
-    while(!list_empty(&argv))
-    {
-      struct list_elem* e = list_pop_front(&argv);
-      struct arg_list_elem *arg = list_entry(e, struct arg_list_elem, elem);
-
-      stack_pointer -= sizeof(char*);
-      *((char**)stack_pointer) = arg->addr;
-
-      free(arg);
-    }
-    // Push argv pointer to stack
-    stack_pointer -= sizeof(char*);
-    *((char**)stack_pointer) = stack_pointer + sizeof(char**);
-
-    // Push argc to stack
-    stack_pointer -= sizeof(int);
-    *((int*)stack_pointer) = argc;
-
-    // Push fake return address to stack
-    stack_pointer -= sizeof(void*);
-    *((void**)stack_pointer) = NULL;
-
-    if_.esp = stack_pointer;
-  }
+  if (success)
+    if_.esp = push_args_to_stack(&argv, argc, if_.esp);
 
   /* If load failed, quit. */
   palloc_free_page (file_name_);

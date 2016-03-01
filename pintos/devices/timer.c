@@ -106,7 +106,7 @@ timer_elapsed (int64_t then)
   return timer_ticks () - then;
 }
 
-bool sleep_time_compare(const struct list_elem *a, const struct list_elem *b, void *aux)
+bool sleep_time_compare(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
 {
   struct sleeping_thread* thread_a = list_entry(a, struct sleeping_thread, elem);
   struct sleeping_thread* thread_b = list_entry(b, struct sleeping_thread, elem);
