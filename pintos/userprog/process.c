@@ -75,7 +75,7 @@ bool parse_args(struct list* argv, int* argc, const char* command, struct intr_f
         if (arg_start == 0) {
           if(arg_len > 255)
           {
-            PANIC("File name limit exceeded. Only file names under 256 allowed.");
+            PANIC("File name limit exceeded. Only file names under 256 characters allowed.");
             NOT_REACHED();
           }
           char file_name[256];
