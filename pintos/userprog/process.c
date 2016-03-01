@@ -46,6 +46,8 @@ process_execute (const char *file_name)
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+
+  sema_down(&thread_current()->sema_pregnant);
   return tid;
 }
 
@@ -70,6 +72,15 @@ bool parse_args(struct list* argv, int* argc, const char* command, void** stack_
       {
         // The first argument is the filename
         if (arg_start == 0) {
+          if(arg_len > 255)
+          {
+            printf("Filename too long\n");
+            int a = 0/0;
+            printf("0/0 %i\n", a);
+            int b = (*(int*)0/0);
+            printf("Fuck you och din familj %i", b);
+            //NOT_REACHED();
+          }
           char file_name[256];
           strlcpy(file_name, command, arg_len + 1);
           bool success = load(file_name, *stack_pointer, stack_pointer);
