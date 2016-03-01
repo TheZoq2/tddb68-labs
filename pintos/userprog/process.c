@@ -22,7 +22,7 @@
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
-bool parse_args(struct list* argv, int* argc, const char* command, void** stack_pointer);
+bool parse_args(struct list* argv, int* argc, const char* command, struct intr_frame* if_);
 void* push_args_to_stack(struct list* argv, int argc, void* stack_pointer);
 
 /* Starts a new thread running a user program loaded from
@@ -57,11 +57,12 @@ struct arg_list_elem {
   void* addr;
 };
 
-bool parse_args(struct list* argv, int* argc, const char* command, void** stack_pointer)
+bool parse_args(struct list* argv, int* argc, const char* command, struct intr_frame* if_)
 {
   int arg_start = 0;
   int arg_end = 0;
   char new_char;
+  void* stack_pointer = NULL;
   do
   {
     new_char = command[arg_end];
@@ -83,14 +84,16 @@ bool parse_args(struct list* argv, int* argc, const char* command, void** stack_
           }
           char file_name[256];
           strlcpy(file_name, command, arg_len + 1);
-          bool success = load(file_name, *stack_pointer, stack_pointer);
+          bool success = load(file_name, &if_->eip, &if_->esp);
           if (!success)
             return false;
+
+          stack_pointer = if_->esp;
         }
 
         // Push the argument to the stack
         stack_pointer -= arg_len + 1;
-        strlcpy(*stack_pointer, &command[arg_start], arg_len + 1);
+        strlcpy(stack_pointer, &command[arg_start], arg_len + 1);
 
         struct arg_list_elem* new_arg = malloc(sizeof(struct arg_list_elem));
         new_arg->addr = stack_pointer;
@@ -103,6 +106,8 @@ bool parse_args(struct list* argv, int* argc, const char* command, void** stack_
     }
     arg_end++;
   } while (new_char != '\0');
+
+  if_->esp = stack_pointer;
   return true;
 }
 
@@ -148,6 +153,7 @@ void* push_args_to_stack(struct list* argv, int argc, void* stack_pointer)
 static void
 start_process (void *file_name_)
 {
+  printf("at start\n");
   char *command = file_name_;
   //char* file_name = file_name_;
   struct intr_frame if_;
@@ -164,7 +170,7 @@ start_process (void *file_name_)
 
   // Parse command to find all arguments
   int argc = 0;
-  success = parse_args(&argv, &argc, command, &if_.esp);
+  success = parse_args(&argv, &argc, command, &if_);
 
   if (success)
     if_.esp = push_args_to_stack(&argv, argc, if_.esp);
@@ -173,6 +179,8 @@ start_process (void *file_name_)
   palloc_free_page (file_name_);
   if (!success)
     thread_exit ();
+
+  printf("start worked\n");
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
