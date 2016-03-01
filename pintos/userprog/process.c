@@ -75,12 +75,8 @@ bool parse_args(struct list* argv, int* argc, const char* command, struct intr_f
         if (arg_start == 0) {
           if(arg_len > 255)
           {
-            printf("Filename too long\n");
-            int a = 0/0;
-            printf("0/0 %i\n", a);
-            int b = (*(int*)0/0);
-            printf("Fuck you och din familj %i", b);
-            //NOT_REACHED();
+            PANIC("File name limit exceeded. Only file names under 256 allowed.");
+            NOT_REACHED();
           }
           char file_name[256];
           strlcpy(file_name, command, arg_len + 1);
