@@ -320,18 +320,18 @@ thread_exit (void)
 #endif
 
   //Free the status struct 
-  try_free_parent_child_struct(curr_thread->parent_child_status);
+  //try_free_parent_child_struct(curr_thread->parent_child_status);
 
-  //Free the list of child process statuses if they have exited
-  struct list_elem* curr_elem = list_begin(&curr_thread->children);
+  ////Free the list of child process statuses if they have exited
+  //struct list_elem* curr_elem = list_begin(&curr_thread->children);
 
-  while(curr_elem != NULL)
-  {
-    struct child_exit_status* cs = list_entry(curr_elem, struct child_status, elem);
+  //while(curr_elem != NULL)
+  //{
+  //  struct child_exit_status* cs = list_entry(curr_elem, struct child_status, elem);
 
 
-    try_free_parent_child_struct(cs);
-  }
+  //  try_free_parent_child_struct(cs);
+  //}
 
   /* Just set our status to dying and schedule another process.
      We will be destroyed during the call to schedule_tail(). */
