@@ -41,13 +41,25 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
+  
+  sema_init(&thread_current()->sema_pregnant, 0);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+
+  if(tid != TID_ERROR)
+  {
+    sema_down(&thread_current()->sema_pregnant);
+
+    if(!get_child_status(tid)->start_success)
+    {
+      tid = TID_ERROR;
+    }
+  }
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
 
-  sema_down(&thread_current()->sema_pregnant);
   return tid;
 }
 
@@ -75,8 +87,7 @@ bool parse_args(struct list* argv, int* argc, const char* command, struct intr_f
         if (arg_start == 0) {
           if(arg_len > 255)
           {
-            PANIC("File name limit exceeded. Only file names under 256 characters allowed.");
-            NOT_REACHED();
+            return false;
           }
           char file_name[256];
           strlcpy(file_name, command, arg_len + 1);
@@ -170,10 +181,21 @@ start_process (void *file_name_)
   if (success)
     if_.esp = push_args_to_stack(&argv, argc, if_.esp);
 
+  struct thread* parent = thread_current()->self_status->parent;
+
+  thread_current()->self_status->start_success = success;
+
+  if(parent != NULL)
+  {
+    sema_up(&parent->sema_pregnant);
+  }
+
   /* If load failed, quit. */
   palloc_free_page (file_name_);
   if (!success)
+  {
     thread_exit ();
+  }
 
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in

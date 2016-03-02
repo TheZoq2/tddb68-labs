@@ -19,7 +19,6 @@ enum thread_status
    You can redefine this to whatever type you like. */
 typedef int tid_t;
 #define TID_ERROR ((tid_t) -1)          /* Error value for tid_t. */
-#define TID_NO_WAIT ((tid_t) -2)
 
 /* Thread priorities. */
 #define PRI_MIN 0                       /* Lowest priority. */
@@ -36,11 +35,11 @@ struct child_status
   struct thread* parent;
   struct thread* child;
 
-  tid_t child_tid;
-
   int exit_status;
 
   int refs;
+  
+  bool start_success;
 };
 
 void try_free_parent_child_struct(struct child_status* pc);
@@ -113,7 +112,7 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
-    struct child_status* parent_child_status;
+    struct child_status* self_status;
 
     tid_t wait_pid; //The PID of the thread currently waited for
 
@@ -171,5 +170,11 @@ int thread_get_nice (void);
 void thread_set_nice (int);
 int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
+
+void add_child_process(struct thread* parent, struct thread* child);
+
+void  init_child_status(struct child_status* cs);
+
+struct child_status* get_child_status(tid_t tid);
 
 #endif /* threads/thread.h */
