@@ -73,14 +73,10 @@ bool parse_args(struct list* argv, int* argc, const char* command, struct intr_f
       {
         // The first argument is the filename
         if (arg_start == 0) {
-          if(arg_len > 255)
-          {
-            PANIC("File name limit exceeded. Only file names under 256 characters allowed.");
-            NOT_REACHED();
-          }
-          char file_name[256];
+          char* file_name = malloc(arg_len + 1);
           strlcpy(file_name, command, arg_len + 1);
           bool success = load(file_name, &if_->eip, &if_->esp);
+          free(file_name);
           if (!success)
             return false;
 
