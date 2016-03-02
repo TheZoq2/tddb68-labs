@@ -91,10 +91,9 @@ bool parse_args(struct list* argv, int* argc, const char* command, struct intr_f
         new_arg->addr = stack_pointer;
         list_push_front(argv, &new_arg->elem);
 
-        arg_start = arg_end + 1;
-
         (*argc)++;
       }
+      arg_start = arg_end + 1;
     }
     arg_end++;
   } while (new_char != '\0');
