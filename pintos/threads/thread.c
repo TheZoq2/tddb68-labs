@@ -534,7 +534,13 @@ init_thread (struct thread *t, const char *name, int priority)
 
   memset (t, 0, sizeof *t);
   t->status = THREAD_BLOCKED;
-  strlcpy (t->name, name, sizeof t->name);
+  unsigned end = 0;
+  while (name[end] != ' ' && name[end] != '\0' && end + 1 < sizeof t->name)
+    end++;
+
+  /* printf("YOLOOOO\n"); */
+
+  strlcpy (t->name, name, end + 1);
   t->stack = (uint8_t *) t + PGSIZE;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
