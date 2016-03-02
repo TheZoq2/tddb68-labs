@@ -7,10 +7,13 @@
 #include "filesys/filesys.h"
 #include "devices/input.h"
 #include "userprog/process.h"
+#include "threads/vaddr.h"
 
 #define MIN_FILE_ID 2
 
 static void syscall_handler (struct intr_frame *);
+
+bool is_valid_user_pointer(void* pointer);
 
 void
 syscall_init (void) 
@@ -21,6 +24,13 @@ syscall_init (void)
 struct file* get_file(unsigned fd)
 {
   return thread_current()->open_files[fd];
+}
+
+bool is_valid_user_pointer(void* pointer)
+{
+  if (is_user_vaddr(pointer))
+    return true;
+  return false;
 }
 
 static void
