@@ -271,5 +271,12 @@ void sys_exec(struct intr_frame* f, void* stack_ptr)
   char* parameters = *((char**) stack_ptr);
   stack_ptr += sizeof(char**);
 
-  process_execute(parameters);
+  tid_t tid = process_execute(parameters);
+
+  f->eax = (unsigned)tid;
+}
+
+void sys_wait(struct intr_frame* f, void* stack_ptr)
+{
+  
 }

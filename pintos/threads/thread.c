@@ -169,6 +169,9 @@ thread_create (const char *name, int priority,
   struct switch_threads_frame *sf;
   tid_t tid;
 
+  struct thread* parent = thread_current();
+
+
   ASSERT (function != NULL);
 
   /* Allocate thread. */
@@ -194,24 +197,65 @@ thread_create (const char *name, int priority,
   sf = alloc_frame (t, sizeof *sf);
   sf->eip = switch_entry;
 
+
+  //If the current thread exists, it is the new threads parent. Set the parent-child
+  //stuff and unblock the parent
+  if(is_thread(parent))
+  {
+    add_child_process(parent, t);
+  }
+
   /* Add to run queue. */
   thread_unblock (t);
-
+  
   return tid;
 }
 
+void init_child_status(struct child_status* cs)
+{
+  cs->parent = NULL;
+  cs->child = NULL;
+
+  cs->exit_status = -1;
+  cs->refs = 0;
+  cs->start_success = true;
+}
 void add_child_process(struct thread* parent, struct thread* child)
 {
   struct child_status* cs = malloc(sizeof(struct child_status));
+  init_child_status(cs);
 
   cs->parent = parent;
   cs->child = child;
-  cs->child_tid = child->tid;
+
+  cs->original_tid = child->tid;
   
   cs->refs = 2;
 
-  child->parent_child_status = cs;
+  child->self_status = cs;
   list_push_back(&parent->children, &cs->elem);
+}
+
+
+/* Return the  child_status struct of a thread with tid_t = tid from the currtent_theard*/
+struct child_status* get_child_status(tid_t tid)
+{
+  struct thread* curr_thread = thread_current();
+
+  struct list_elem* curr_elem = list_begin(&curr_thread->children);
+  while(curr_elem != list_end(&curr_thread->children))
+  {
+    struct child_status* cs = list_entry(curr_elem, struct child_status, elem);
+
+    if(cs->original_tid == tid)
+    {
+      return cs;
+    }
+
+    curr_elem = list_next(curr_elem);
+  }
+
+  return NULL;
 }
 
 /* Puts the current thread to sleep.  It will not be scheduled
@@ -289,7 +333,7 @@ void try_free_parent_child_struct(struct child_status* pc)
 {
   --pc->refs;
 
-  //The status is not used anywhere else, free the memory
+  ////The status is not used anywhere else, free the memory
   if(pc->refs == 0)
   {
     free(pc);
@@ -320,18 +364,20 @@ thread_exit (void)
 #endif
 
   //Free the status struct 
-  //try_free_parent_child_struct(curr_thread->parent_child_status);
+  try_free_parent_child_struct(curr_thread->self_status);
 
-  ////Free the list of child process statuses if they have exited
-  //struct list_elem* curr_elem = list_begin(&curr_thread->children);
+  //Free the list of child process statuses if they have exited
+  struct list_elem* curr_elem = list_begin(&curr_thread->children);
 
-  //while(curr_elem != NULL)
-  //{
-  //  struct child_exit_status* cs = list_entry(curr_elem, struct child_status, elem);
+  while(curr_elem != list_end(&curr_thread->children))
+  {
+    struct child_exit_status* cs = list_entry(curr_elem, struct child_status, elem);
 
+    //The next elem needs to be extracted before freeing the memory
+    curr_elem = list_next(curr_elem);
 
-  //  try_free_parent_child_struct(cs);
-  //}
+    try_free_parent_child_struct(cs);
+  }
 
   /* Just set our status to dying and schedule another process.
      We will be destroyed during the call to schedule_tail(). */
