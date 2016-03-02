@@ -227,6 +227,8 @@ void add_child_process(struct thread* parent, struct thread* child)
 
   cs->parent = parent;
   cs->child = child;
+
+  cs->original_tid = child->tid;
   
   cs->refs = 2;
 
@@ -245,8 +247,7 @@ struct child_status* get_child_status(tid_t tid)
   {
     struct child_status* cs = list_entry(curr_elem, struct child_status, elem);
 
-    printf("curent tid %i\n", cs->child->tid);
-    if(cs->child->tid == tid)
+    if(cs->original_tid == tid)
     {
       return cs;
     }
@@ -254,7 +255,6 @@ struct child_status* get_child_status(tid_t tid)
     curr_elem = list_next(curr_elem);
   }
 
-  printf("thread %i\n", tid);
   return NULL;
 }
 
@@ -364,7 +364,7 @@ thread_exit (void)
 #endif
 
   //Free the status struct 
-  //try_free_parent_child_struct(curr_thread->parent_child_status);
+  try_free_parent_child_struct(curr_thread->self_status);
 
   ////Free the list of child process statuses if they have exited
   //struct list_elem* curr_elem = list_begin(&curr_thread->children);

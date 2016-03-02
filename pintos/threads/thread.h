@@ -35,6 +35,8 @@ struct child_status
   struct thread* parent;
   struct thread* child;
 
+  tid_t original_tid;
+
   int exit_status;
 
   int refs;
