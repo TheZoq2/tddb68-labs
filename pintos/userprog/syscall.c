@@ -40,7 +40,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_EXIT:
     {
-      sys_exit();
+      sys_exit(f, stack_ptr);
       break;
     }
     case SYS_EXEC:
@@ -50,6 +50,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_WAIT:
     {
+      sys_wait(f, stack_ptr);
       break;
     }
     case SYS_CREATE:
@@ -251,8 +252,14 @@ void sys_close(void* stack_ptr)
   }
 }
 
-void sys_exit(void)
+void sys_exit(struct intr_frame* f, void* stack_ptr)
 {
+  int exit_status = *((int*) stack_ptr);
+  stack_ptr += sizeof(int*);
+
+  thread_current()->self_status->exit_status = exit_status;
+  sema_up(&thread_current()->self_status->sema_wait);
+  
   thread_exit();
 }
 
@@ -268,5 +275,10 @@ void sys_exec(struct intr_frame* f, void* stack_ptr)
 
 void sys_wait(struct intr_frame* f, void* stack_ptr)
 {
-  
+  int tid = *((int*) stack_ptr);
+  stack_ptr += sizeof(int*);
+
+  int status = process_wait(tid);
+
+  f->eax = (unsigned)status;
 }

@@ -219,10 +219,11 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  while(1)
-  {
-  }
-  return -1;
+  struct child_status* cs = get_child_status(child_tid);
+
+  sema_down(&cs->sema_wait);
+
+  return cs->exit_status;
 }
 
 /* Free the current process's resources. */

@@ -33,10 +33,10 @@ struct child_status
   struct list_elem elem;
 
   struct thread* parent;
-  struct thread* child;
 
   tid_t original_tid;
 
+  struct semaphore sema_wait;
   int exit_status;
 
   int refs;
@@ -115,14 +115,6 @@ struct thread
     struct list_elem elem;              /* List element. */
 
     struct child_status* self_status;
-
-    tid_t wait_pid; //The PID of the thread currently waited for
-
-    /*
-      If the thread is waiting for a child thread, it will sema down(?) this semaphore wich will be 0. 
-      When the child thread being waited for exits, it should sema_up this semaphore
-    */
-    struct semaphore sema_process_wait;
 
     struct semaphore sema_pregnant;
 
