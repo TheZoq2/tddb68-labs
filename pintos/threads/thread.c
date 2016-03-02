@@ -333,7 +333,7 @@ void try_free_parent_child_struct(struct child_status* pc)
 {
   --pc->refs;
 
-  //The status is not used anywhere else, free the memory
+  ////The status is not used anywhere else, free the memory
   if(pc->refs == 0)
   {
     free(pc);
@@ -366,16 +366,18 @@ thread_exit (void)
   //Free the status struct 
   try_free_parent_child_struct(curr_thread->self_status);
 
-  ////Free the list of child process statuses if they have exited
-  //struct list_elem* curr_elem = list_begin(&curr_thread->children);
+  //Free the list of child process statuses if they have exited
+  struct list_elem* curr_elem = list_begin(&curr_thread->children);
 
-  //while(curr_elem != NULL)
-  //{
-  //  struct child_exit_status* cs = list_entry(curr_elem, struct child_status, elem);
+  while(curr_elem != list_end(&curr_thread->children))
+  {
+    struct child_exit_status* cs = list_entry(curr_elem, struct child_status, elem);
 
+    //The next elem needs to be extracted before freeing the memory
+    curr_elem = list_next(curr_elem);
 
-  //  try_free_parent_child_struct(cs);
-  //}
+    try_free_parent_child_struct(cs);
+  }
 
   /* Just set our status to dying and schedule another process.
      We will be destroyed during the call to schedule_tail(). */
