@@ -6,7 +6,7 @@ SRCDIR = ..
 PROGS = cat cmp cp echo halt hex-dump ls mcat mcp mkdir pwd rm hello shell touch \
 	bubsort insult lineup matmult recursor \
 	sumargv lab2test lab1test pfs pfs_reader pfs_writer dummy longrun \
-	child parent create-bad files yolo
+	child parent create-bad files yolo hugeWhile
 
 # Added test programs
 sumargv_SRC = sumargv.c
@@ -34,6 +34,8 @@ ls_SRC = ls.c
 recursor_SRC = recursor.c
 rm_SRC = rm.c
 hello_SRC = hello.c
+
+hugeWhile_SRC = hugeWhile.c
 
 yolo_SRC = yolo.c
 touch_SRC = touch.c

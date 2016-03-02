@@ -214,11 +214,12 @@ thread_create (const char *name, int priority,
 void init_child_status(struct child_status* cs)
 {
   cs->parent = NULL;
-  cs->child = NULL;
 
   cs->exit_status = -1;
   cs->refs = 0;
   cs->start_success = true;
+
+  sema_init(&cs->sema_wait, 0);
 }
 void add_child_process(struct thread* parent, struct thread* child)
 {
@@ -226,7 +227,6 @@ void add_child_process(struct thread* parent, struct thread* child)
   init_child_status(cs);
 
   cs->parent = parent;
-  cs->child = child;
 
   cs->original_tid = child->tid;
   
@@ -329,14 +329,17 @@ thread_tid (void)
   return thread_current ()->tid;
 }
 
-void try_free_parent_child_struct(struct child_status* pc)
+void try_free_parent_child_struct(struct child_status* cs)
 {
-  --pc->refs;
-
-  ////The status is not used anywhere else, free the memory
-  if(pc->refs == 0)
+  if(cs != NULL)
   {
-    free(pc);
+    --cs->refs;
+
+    ////The status is not used anywhere else, free the memory
+    if(cs->refs == 0)
+    {
+      free(cs);
+    }
   }
 }
 
@@ -371,7 +374,7 @@ thread_exit (void)
 
   while(curr_elem != list_end(&curr_thread->children))
   {
-    struct child_exit_status* cs = list_entry(curr_elem, struct child_status, elem);
+    struct child_status* cs = list_entry(curr_elem, struct child_status, elem);
 
     //The next elem needs to be extracted before freeing the memory
     curr_elem = list_next(curr_elem);
@@ -540,7 +543,6 @@ init_thread (struct thread *t, const char *name, int priority)
   int wait_pid = -1;
 
   sema_init(&t->sema_pregnant, 0);
-  sema_init(&t->sema_process_wait, 0);
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
