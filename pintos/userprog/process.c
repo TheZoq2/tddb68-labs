@@ -228,6 +228,7 @@ process_wait (tid_t child_tid UNUSED)
 
     return cs->exit_status;
   }
+  return -1;
 }
 
 /* Free the current process's resources. */
