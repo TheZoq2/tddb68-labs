@@ -269,6 +269,8 @@ void sys_exit(struct intr_frame* f, void* stack_ptr)
 
   thread_current()->self_status->exit_status = exit_status;
   sema_up(&thread_current()->self_status->sema_wait);
+
+  printf("%s: exit(%d)\n", thread_current()->name, exit_status);
   
   thread_exit();
 }
