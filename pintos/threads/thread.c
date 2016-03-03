@@ -218,6 +218,7 @@ void init_child_status(struct child_status* cs)
   cs->exit_status = -1;
   cs->refs = 0;
   cs->start_success = true;
+  cs->is_checked = false;
 
   sema_init(&cs->sema_wait, 0);
 }

@@ -221,9 +221,13 @@ process_wait (tid_t child_tid UNUSED)
 {
   struct child_status* cs = get_child_status(child_tid);
 
-  sema_down(&cs->sema_wait);
+  if(cs != NULL && !cs->is_checked)
+  {
+    cs->is_checked = true;
+    sema_down(&cs->sema_wait);
 
-  return cs->exit_status;
+    return cs->exit_status;
+  }
 }
 
 /* Free the current process's resources. */

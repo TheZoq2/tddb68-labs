@@ -42,6 +42,7 @@ struct child_status
   int refs;
   
   bool start_success;
+  bool is_checked;
 };
 
 void try_free_parent_child_struct(struct child_status* pc);
