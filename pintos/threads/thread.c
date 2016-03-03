@@ -391,6 +391,15 @@ thread_exit (void)
   NOT_REACHED ();
 }
 
+void thread_exit_with_status(int exit_status)
+{
+  thread_current()->self_status->exit_status = exit_status;
+  sema_up(&thread_current()->self_status->sema_wait);
+
+
+  thread_exit();
+}
+
 /* Yields the CPU.  The current thread is not put to sleep and
    may be scheduled again immediately at the scheduler's whim. */
 void

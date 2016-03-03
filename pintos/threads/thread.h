@@ -156,6 +156,7 @@ tid_t thread_tid (void);
 const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
+void thread_exit_with_status(int exit_status);
 void thread_yield (void);
 
 int thread_get_priority (void);
@@ -168,7 +169,7 @@ int thread_get_load_avg (void);
 
 void add_child_process(struct thread* parent, struct thread* child);
 
-void  init_child_status(struct child_status* cs);
+void  init_ehild_status(struct child_status* cs);
 
 struct child_status* get_child_status(tid_t tid);
 

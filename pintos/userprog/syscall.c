@@ -26,10 +26,25 @@ struct file* get_file(unsigned fd)
   return thread_current()->open_files[fd];
 }
 
-bool is_valid_user_pointer(void* pointer)
+bool check_valid_user_pointer(void* pointer)
 {
-  if (is_user_vaddr(pointer))
-    return true;
+  bool is_valid;
+  //Make sure the pointer is below phys_base
+  if (!is_user_vaddr(pointer))
+  {
+    is_valid =  false;
+  }
+
+  //Make sure the pointer is in physical memory
+  if(pagedir_get_page(pointer) == NULL)
+  {
+    is_valid = false;
+  }
+  
+  if(is_valid == false)
+  {
+    thread_exit_with_status(-1);
+  }
   return false;
 }
 
@@ -38,6 +53,8 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   int syscall_id = *((int*)f->esp);
   void* stack_ptr = f->esp;
+
+  //check_valid_user_pointer(stack_ptr);
 
   stack_ptr += sizeof(void*);
 
@@ -266,12 +283,9 @@ void sys_exit(struct intr_frame* f, void* stack_ptr)
   int exit_status = *((int*) stack_ptr);
   stack_ptr += sizeof(int*);
 
-  thread_current()->self_status->exit_status = exit_status;
-  sema_up(&thread_current()->self_status->sema_wait);
-
   printf("%s: exit(%d)\n", thread_current()->name, exit_status);
 
-  thread_exit();
+  thread_exit_with_status(-1);
 }
 
 void sys_exec(struct intr_frame* f, void* stack_ptr)
