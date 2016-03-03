@@ -16,7 +16,7 @@ static void syscall_handler (struct intr_frame *);
 bool is_valid_user_pointer(void* pointer);
 
 void
-syscall_init (void) 
+syscall_init (void)
 {
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
@@ -34,14 +34,14 @@ bool is_valid_user_pointer(void* pointer)
 }
 
 static void
-syscall_handler (struct intr_frame *f UNUSED) 
+syscall_handler (struct intr_frame *f UNUSED)
 {
   int syscall_id = *((int*)f->esp);
   void* stack_ptr = f->esp;
 
   stack_ptr += sizeof(void*);
 
-  switch(syscall_id) 
+  switch(syscall_id)
   {
     case  SYS_HALT:
     {
@@ -76,7 +76,6 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_OPEN:
     {
       sys_open(f, stack_ptr);
-      
       break;
     }
     case SYS_FILESIZE:
@@ -271,7 +270,7 @@ void sys_exit(struct intr_frame* f, void* stack_ptr)
   sema_up(&thread_current()->self_status->sema_wait);
 
   printf("%s: exit(%d)\n", thread_current()->name, exit_status);
-  
+
   thread_exit();
 }
 

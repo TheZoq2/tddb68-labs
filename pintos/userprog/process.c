@@ -121,9 +121,8 @@ bool parse_args(struct list* argv, int* argc, const char* command, struct intr_f
 void* push_args_to_stack(struct list* argv, int argc, void* stack_pointer)
 {
   // Word align stack pointer
-  int stack_pointer_misalign = (int)stack_pointer % 4;
-  if (stack_pointer_misalign != 0)
-    stack_pointer -= 4 - stack_pointer_misalign;
+  unsigned stack_pointer_misalign = (unsigned)stack_pointer % 4;
+  stack_pointer -= stack_pointer_misalign;
 
   // Push extra null pointer to end of argv
   stack_pointer -= sizeof(char*);
@@ -140,6 +139,7 @@ void* push_args_to_stack(struct list* argv, int argc, void* stack_pointer)
 
     free(arg);
   }
+
   // Push argv pointer to stack
   stack_pointer -= sizeof(char*);
   *((char**)stack_pointer) = stack_pointer + sizeof(char**);
@@ -217,7 +217,7 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid UNUSED)
 {
   struct child_status* cs = get_child_status(child_tid);
 
