@@ -271,6 +271,32 @@ process_activate (void)
      interrupts. */
   tss_update ();
 }
+
+void check_valid_user_pointer(void* pointer)
+{
+  //Make sure the pointer is below phys_base
+  if (!is_user_vaddr(pointer) || pagedir_get_page(thread_current()->pagedir, pointer) == NULL)
+  {
+    thread_exit_with_status(-1);
+  }
+}
+void check_valid_user_string(char* start)
+{
+  do
+  {
+    check_valid_user_pointer(start);
+    start++;
+  }
+  while(*start != '\0');
+}
+void check_valid_user_array(void* start, size_t size)
+{
+  size_t i;
+  for(i = 0; i < size; ++i)
+  {
+    check_valid_user_pointer(start + i);
+  }
+}
 
 /* We load ELF binaries.  The following definitions are taken
    from the ELF specification, [ELF1], more-or-less verbatim.  */

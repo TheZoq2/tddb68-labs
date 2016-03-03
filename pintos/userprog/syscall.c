@@ -8,6 +8,7 @@
 #include "devices/input.h"
 #include "userprog/process.h"
 #include "threads/vaddr.h"
+#include "pagedir.h"
 
 #define MIN_FILE_ID 2
 
@@ -23,40 +24,30 @@ syscall_init (void)
 
 struct file* get_file(unsigned fd)
 {
-  return thread_current()->open_files[fd];
+  if(fd >= 0 && fd < MAX_PROCESS_FILES)
+  {
+    return thread_current()->open_files[fd];
+  }
+  return NULL;
 }
 
-bool check_valid_user_pointer(void* pointer)
+void incr_stack_ptr_with_chk(void** ptr, unsigned amount)
 {
-  bool is_valid;
-  //Make sure the pointer is below phys_base
-  if (!is_user_vaddr(pointer))
-  {
-    is_valid =  false;
-  }
+  *ptr += amount;
 
-  //Make sure the pointer is in physical memory
-  if(pagedir_get_page(pointer) == NULL)
-  {
-    is_valid = false;
-  }
-  
-  if(is_valid == false)
-  {
-    thread_exit_with_status(-1);
-  }
-  return false;
+  check_valid_user_pointer(*ptr);
 }
 
 static void
 syscall_handler (struct intr_frame *f UNUSED)
 {
+  check_valid_user_pointer(f->esp);
+
   int syscall_id = *((int*)f->esp);
   void* stack_ptr = f->esp;
 
-  //check_valid_user_pointer(stack_ptr);
+  incr_stack_ptr_with_chk(&stack_ptr, sizeof(void*));
 
-  stack_ptr += sizeof(void*);
 
   switch(syscall_id)
   {
@@ -125,7 +116,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       break;
     }
     default:
-      break;
+      thread_exit_with_status(-1);
   }
 }
 
@@ -133,7 +124,9 @@ void sys_create(struct intr_frame *f, void* stack_ptr)
 {
   //Fetch the filename and size
   char* filename = *(char**)stack_ptr;
-  stack_ptr += sizeof(char*);
+  check_valid_user_string(filename);
+
+  incr_stack_ptr_with_chk(&stack_ptr, sizeof(char*));
   unsigned int size = *((unsigned int*)stack_ptr);
 
   bool result = filesys_create(filename, size);
@@ -145,7 +138,7 @@ void sys_remove(struct intr_frame* f, void* stack_ptr)
 {
   //Fetch the filename and size
   char* filename = *(char**)stack_ptr;
-  stack_ptr += sizeof(char*);
+  check_valid_user_string(filename);
 
   bool result = filesys_remove(filename);
 
@@ -158,6 +151,7 @@ void sys_open(struct intr_frame* f, void* stack_ptr)
 
   //Kod skriven tillsammans med Hannes Tukalla
   char* filename = *(char**)stack_ptr;
+  check_valid_user_string(filename);
   int file_descriptor = -1;
   struct file* opened_file = filesys_open(filename);
 
@@ -182,10 +176,12 @@ void sys_open(struct intr_frame* f, void* stack_ptr)
 void sys_write(struct intr_frame* f, void* stack_ptr)
 {
   int fd = *((int*) stack_ptr);
-  stack_ptr += sizeof(int*);
+  incr_stack_ptr_with_chk(&stack_ptr, sizeof(int*));
   void* buffer = *((void**) stack_ptr);
-  stack_ptr += sizeof(void*);
+  incr_stack_ptr_with_chk(&stack_ptr, sizeof(void*));
   unsigned size = *((unsigned*) stack_ptr);
+
+  check_valid_user_array(buffer, size);
 
   int orig_size = size;
   if (fd == STDOUT_FILENO) {
@@ -215,10 +211,12 @@ void sys_write(struct intr_frame* f, void* stack_ptr)
 void sys_read(struct intr_frame* f, void* stack_ptr)
 {
   int fd = *((int*) stack_ptr);
-  stack_ptr += sizeof(int*);
+  incr_stack_ptr_with_chk(&stack_ptr, sizeof(int*));
   uint8_t* buffer = *((uint8_t**) stack_ptr);
-  stack_ptr += sizeof(uint8_t*);
+  incr_stack_ptr_with_chk(&stack_ptr, sizeof(uint8_t*));
   unsigned size = *((unsigned*) stack_ptr);
+
+  check_valid_user_array(buffer, size);
 
   int orig_size = size;
   if (fd == STDIN_FILENO) {
@@ -281,17 +279,17 @@ void sys_close(void* stack_ptr)
 void sys_exit(struct intr_frame* f, void* stack_ptr)
 {
   int exit_status = *((int*) stack_ptr);
-  stack_ptr += sizeof(int*);
+  incr_stack_ptr_with_chk(&stack_ptr, sizeof(int*));
 
-  printf("%s: exit(%d)\n", thread_current()->name, exit_status);
-
-  thread_exit_with_status(-1);
+  thread_exit_with_status(exit_status);
 }
 
 void sys_exec(struct intr_frame* f, void* stack_ptr)
 {
   char* parameters = *((char**) stack_ptr);
-  stack_ptr += sizeof(char**);
+  incr_stack_ptr_with_chk(&stack_ptr, sizeof(char**));
+
+  check_valid_user_string(parameters);
 
   tid_t tid = process_execute(parameters);
 
@@ -301,7 +299,7 @@ void sys_exec(struct intr_frame* f, void* stack_ptr)
 void sys_wait(struct intr_frame* f, void* stack_ptr)
 {
   int tid = *((int*) stack_ptr);
-  stack_ptr += sizeof(int*);
+  incr_stack_ptr_with_chk(&stack_ptr, sizeof(int*));
 
   int status = process_wait(tid);
 

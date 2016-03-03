@@ -396,6 +396,7 @@ void thread_exit_with_status(int exit_status)
   thread_current()->self_status->exit_status = exit_status;
   sema_up(&thread_current()->self_status->sema_wait);
 
+  printf("%s: exit(%d)\n", thread_current()->name, exit_status);
 
   thread_exit();
 }
