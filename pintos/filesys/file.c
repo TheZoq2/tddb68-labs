@@ -18,7 +18,7 @@ struct file *
 file_open (struct inode *inode) 
 {
   struct file *file = calloc (1, sizeof *file);
-  if (inode != NULL && file != NULL && inode->removed != NULL)
+  if (inode != NULL && file != NULL && inode_is_removed(file->inode))
     {
       file->inode = inode;
       file->pos = 0;
@@ -155,6 +155,9 @@ file_seek (struct file *file, off_t new_pos)
 {
   ASSERT (file != NULL);
   ASSERT (new_pos >= 0);
+  
+  //Ensure that the new pos is within the borders of the file. 
+  if(new_pos >= file_length(file)) new_pos = file_length(file) - 1;
   file->pos = new_pos;
 }
 
