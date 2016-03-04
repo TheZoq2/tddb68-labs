@@ -51,8 +51,7 @@ process_execute (const char *file_name)
   {
     palloc_free_page (fn_copy); 
   }
-
-  if(tid != TID_ERROR)
+  else
   {
     sema_down(&thread_current()->sema_pregnant);
 
