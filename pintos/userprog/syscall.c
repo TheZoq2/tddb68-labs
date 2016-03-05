@@ -261,7 +261,7 @@ void sys_filesize(struct intr_frame* f, void* stack_ptr)
 void sys_seek(void* stack_ptr)
 {
   int fd = *((unsigned*)stack_ptr);
-  incr_stack_ptr_with_chk(&stack_ptr, sizeof(unsigned*));
+  incr_stack_ptr_with_chk(&stack_ptr, sizeof(unsigned));
   unsigned position = *((unsigned*)stack_ptr);
 
   file_seek(get_file(fd), position);

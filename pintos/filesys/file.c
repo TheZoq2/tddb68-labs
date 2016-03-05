@@ -157,7 +157,6 @@ file_seek (struct file *file, off_t new_pos)
   ASSERT (file != NULL);
   ASSERT (new_pos >= 0);
   
-  printf("Seeking to: %i\n", new_pos);
   //Ensure that the new pos is within the borders of the file. 
   if (new_pos >= file_length(file))
     new_pos = file_length(file) - 1;
