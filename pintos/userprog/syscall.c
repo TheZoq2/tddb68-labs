@@ -58,7 +58,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_EXIT:
     {
-      sys_exit(f, stack_ptr);
+      sys_exit(stack_ptr);
       break;
     }
     case SYS_EXEC:
@@ -104,6 +104,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_SEEK:
     {
+      sys_seek(f, stack_ptr);
       break;
     }
     case SYS_TELL:
@@ -250,11 +251,20 @@ void sys_read(struct intr_frame* f, void* stack_ptr)
 void sys_filesize(struct intr_frame* f, void* stack_ptr)
 {
   //Get the file descriptor
-  unsigned fd = *((unsigned*)stack_ptr);
+  int fd = *((int*)stack_ptr);
 
   off_t size = file_length(get_file(fd));
 
   f->eax = size;
+}
+
+void sys_seek(struct intr_frame* f, void* stack_ptr)
+{
+  int fd = *((unsigned*)stack_ptr);
+  stack_ptr -= sizeof(unsigned);
+  unsigned position = *((unsigned*)stack_ptr);
+
+  file_seek(get_file(fd), position);
 }
 
 void sys_close(void* stack_ptr)
@@ -276,7 +286,7 @@ void sys_close(void* stack_ptr)
   }
 }
 
-void sys_exit(struct intr_frame* f, void* stack_ptr)
+void sys_exit(void* stack_ptr)
 {
   int exit_status = *((int*) stack_ptr);
   incr_stack_ptr_with_chk(&stack_ptr, sizeof(int*));
