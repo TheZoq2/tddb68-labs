@@ -157,7 +157,8 @@ file_seek (struct file *file, off_t new_pos)
   ASSERT (new_pos >= 0);
   
   //Ensure that the new pos is within the borders of the file. 
-  if(new_pos >= file_length(file)) new_pos = file_length(file) - 1;
+  if (new_pos >= file_length(file))
+    new_pos = file_length(file) - 1;
   file->pos = new_pos;
 }
 
