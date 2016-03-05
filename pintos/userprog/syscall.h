@@ -18,7 +18,7 @@ void sys_open(struct intr_frame* f, void* stack_ptr);
 void sys_write(struct intr_frame* f, void* stack_ptr);
 void sys_read(struct intr_frame* f, void* stack_ptr);
 void sys_filesize(struct intr_frame* f, void* stack_ptr);
-void sys_seek(struct intr_frame* f, void* stack_ptr);
+void sys_seek(void* stack_ptr);
 void sys_close(void* stack_ptr);
 void sys_exit(void* stack_ptr);
 void sys_exec(struct intr_frame* f, void* stack_ptr);

@@ -24,14 +24,14 @@ syscall_init (void)
 
 struct file* get_file(unsigned fd)
 {
-  if(fd >= 0 && fd < MAX_PROCESS_FILES)
+  if(fd < MAX_PROCESS_FILES)
   {
     return thread_current()->open_files[fd];
   }
   return NULL;
 }
 
-void incr_stack_ptr_with_chk(void** ptr, unsigned amount)
+static void incr_stack_ptr_with_chk(void** ptr, unsigned amount)
 {
   *ptr += amount;
 
@@ -39,7 +39,7 @@ void incr_stack_ptr_with_chk(void** ptr, unsigned amount)
 }
 
 static void
-syscall_handler (struct intr_frame *f UNUSED)
+syscall_handler (struct intr_frame *f)
 {
   check_valid_user_pointer(f->esp);
 
@@ -104,7 +104,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     case SYS_SEEK:
     {
-      sys_seek(f, stack_ptr);
+      sys_seek(stack_ptr);
       break;
     }
     case SYS_TELL:
@@ -258,7 +258,7 @@ void sys_filesize(struct intr_frame* f, void* stack_ptr)
   f->eax = size;
 }
 
-void sys_seek(struct intr_frame* f, void* stack_ptr)
+void sys_seek(void* stack_ptr)
 {
   int fd = *((unsigned*)stack_ptr);
   stack_ptr -= sizeof(unsigned);

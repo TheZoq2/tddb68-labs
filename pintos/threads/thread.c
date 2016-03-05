@@ -557,7 +557,6 @@ init_thread (struct thread *t, const char *name, int priority)
   t->magic = THREAD_MAGIC;
 
   list_init(&t->children);
-  int wait_pid = -1;
 
   sema_init(&t->sema_pregnant, 0);
 }
