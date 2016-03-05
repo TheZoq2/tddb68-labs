@@ -153,6 +153,7 @@ void sys_open(struct intr_frame* f, void* stack_ptr)
   //Kod skriven tillsammans med Hannes Tukalla
   char* filename = *(char**)stack_ptr;
   check_valid_user_string(filename);
+
   int file_descriptor = -1;
   struct file* opened_file = filesys_open(filename);
 

@@ -10,6 +10,8 @@
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
 
+struct lock inode_list_lock; 
+
 /* On-disk inode.
    Must be exactly DISK_SECTOR_SIZE bytes long. */
 struct inode_disk
@@ -37,6 +39,19 @@ struct inode
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     struct inode_disk data;             /* Inode content. */
+
+    /*
+     * The lock for the actual reading/writing. If one writer is writing or at least
+     * one reader is reading, the resource will be locked. While a writer is writing,
+     * the resource will be locked until it is done, at which point more readers or writers
+     * can enter.
+     */
+    struct lock reader_writer_lock;
+
+    /*
+     * Lock for the internal variables in the inode
+     */
+    struct lock internal_lock;
   };
 
 /* Returns the disk sector that contains byte offset POS within
@@ -62,6 +77,8 @@ void
 inode_init (void) 
 {
   list_init (&open_inodes);
+
+  lock_init(&inode_list_lock);
 }
 
 /* Initializes an inode with LENGTH bytes of data and
@@ -114,6 +131,8 @@ inode_open (disk_sector_t sector)
   struct list_elem *e;
   struct inode *inode;
 
+  //Lock anyone else out of the inode list
+  lock_acquire(&inode_list_lock);
   /* Check whether this inode is already open. */
   for (e = list_begin (&open_inodes); e != list_end (&open_inodes);
        e = list_next (e)) 
@@ -132,12 +151,19 @@ inode_open (disk_sector_t sector)
     return NULL;
 
   /* Initialize. */
-  list_push_front (&open_inodes, &inode->elem);
   inode->sector = sector;
   inode->open_cnt = 1;
   inode->deny_write_cnt = 0;
   inode->removed = false;
   disk_read (filesys_disk, inode->sector, &inode->data);
+
+  lock_init(inode->reader_writer_lock);
+  lock_init(inode->internal_lock);
+
+  //Push the node into the list and unlock the list for other modifications
+  list_push_front (&open_inodes, &inode->elem);
+  lock_release(&inode_list_lock);
+
   return inode;
 }
 
@@ -148,7 +174,10 @@ inode_reopen (struct inode *inode)
   if (inode != NULL) 
     {
       ASSERT(inode->open_cnt != 0);
+
+      lock_acquire(&internal_lock)
       inode->open_cnt++;
+      lock_release(&internal_lock);
     }
   return inode;
 }
@@ -170,11 +199,14 @@ inode_close (struct inode *inode)
   if (inode == NULL)
     return;
 
+  lock_acquire(internal_lock);
   /* Release resources if this was the last opener. */
   if (--inode->open_cnt == 0)
     {
+      lock_acquire(&inode_list_lock);
       /* Remove from inode list and release lock. */
       list_remove (&inode->elem);
+      lock_release(&inode_list_lock);
  
       /* Deallocate blocks if removed. */
       if (inode->removed) 
@@ -185,6 +217,10 @@ inode_close (struct inode *inode)
         }
 
       free (inode); 
+    }
+  else
+    {
+      lock_release(&internal_lock);
     }
 }
 
