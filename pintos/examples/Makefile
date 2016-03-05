@@ -3,10 +3,10 @@ SRCDIR = ..
 # Test programs to compile, and a list of sources for each.
 # To add a new test, put its name on the PROGS list
 # and then add a name_SRC line that lists its source files.
-PROGS = cat cmp cp echo halt hex-dump ls mcat mcp mkdir pwd rm hello shell touch \
+PROGS = cat cmp cp echo halt hex-dump ls mcat mcp mkdir pwd rm shell touch \
 	bubsort insult lineup matmult recursor \
 	sumargv lab2test lab1test pfs pfs_reader pfs_writer dummy longrun \
-	child parent create-bad files yolo hugeWhile filesysTest
+	child parent create-bad files yolo filesysTest
 
 # Added test programs
 sumargv_SRC = sumargv.c

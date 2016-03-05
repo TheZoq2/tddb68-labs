@@ -2,9 +2,26 @@
 #include <stdio.h>
 #include <string.h>
 
-int main(int argc, char* argv[])
+int success = 1;
+int total_success = 1;
+static void test_success()
 {
-    int success = 1;
+    if(!success)
+    {
+        printf("TEST FAIL\n");
+
+        total_success = 0;
+    }
+    else
+    {
+        printf("TEST PASS\n");
+    }
+
+    success = 1;
+}
+
+int main()
+{
 
     //Create a test file
     const unsigned test_len = 512;
@@ -23,7 +40,7 @@ int main(int argc, char* argv[])
     }
 
     //Generate content for it
-    char file_content[512];
+    char file_content[test_len];
 
     for(unsigned i = 0; i < test_len; ++i)
     {
@@ -32,14 +49,16 @@ int main(int argc, char* argv[])
     }
 
     //Write that content
-    int amount = write(fd, file_content, 512);
+    unsigned amount = write(fd, file_content, 512);
 
     if(amount != test_len)
     {
-        printf("Incorrect number of bytes read. Read %i, expected %i\n", amount, test_len);
+        printf("Incorrect number of bytes written. Wrote %i, expected %i\n", amount, test_len);
 
         success = 0;
     }
+
+    test_success();
 
     close(fd);
 
@@ -60,9 +79,34 @@ int main(int argc, char* argv[])
         success = 0;
     }
 
+    test_success();
+
+    printf("Regular read test\n");
+    char read_buff[test_len];
+
+    read(fd, read_buff, test_len);
+
+    for(unsigned i = 0; i < test_len; ++i)
+    {
+        if(file_content[i] != read_buff[i])
+        {
+            printf("Read %c but expected %c when reading sequentially\n", file_content[i], read_buff[i]);
+
+            success = 0;
+        }
+    }
+
+    test_success();
+
     printf("Seek test\n");
     const unsigned seek_amount = 5;
-    const unsigned seek_spots[seek_amount] = {50, 25, 1, 100, 400};
+    unsigned seek_spots[5];
+    
+    seek_spots[0] = 50;
+    seek_spots[1] = 25; 
+    seek_spots[2] = 1 ;
+    seek_spots[3] = 10;
+    seek_spots[4] = 40;
 
     for(unsigned i = 0; i < seek_amount; ++i)
     {
@@ -75,16 +119,34 @@ int main(int argc, char* argv[])
         {
             printf("Read %i bytes, expected %i\n", amount, 1);
 
-            sccess = 0;
+            success = 0;
         }
 
         if(buffer != file_content[seek_spots[i]])
         {
-            printf("Read %c, expected %c\n", buffer, file_content[seek_spots[i]]);
+            printf("Read %c, expected %c when seeking to %i\n", buffer, file_content[seek_spots[i]], seek_spots[i]);
             
             success = 0;
         }
     }
+
+    test_success();
+
+    close(fd);
+    int removed = remove("test");
+
+    if(!removed)
+    {
+        printf("File removal failed");
+        success = 0;
+    }
+
+    test_success();
     
     printf("Single threaded tests done\n");
+
+    if(total_success)
+    {
+        printf("All tests PASSED");
+    }
 }
