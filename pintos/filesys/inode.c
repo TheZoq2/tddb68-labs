@@ -142,15 +142,19 @@ inode_open (disk_sector_t sector)
       if (inode->sector == sector) 
         {
           inode_reopen (inode);
+          lock_release(&inode_list_lock);
           return inode; 
         }
     }
 
+
   /* Allocate memory. */
   inode = malloc (sizeof *inode);
   if (inode == NULL)
+  {
     lock_release(&inode_list_lock);
     return NULL;
+  }
 
   /* Initialize. */
   inode->sector = sector;
