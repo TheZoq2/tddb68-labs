@@ -1,11 +1,12 @@
-Child-parent relations
-======================
+File stuff
+==========
+Inodes are pointers to disk. Each process that opens a specific file should have the same inode for that file.
 
-* `process_execute` starts `thread_create` passing the `start_process` function which is probably 
-run when  the thread starts
-* The new thread  can be scheduled before `thread_create` is run so the child-parent stuff needs to be set up
-before somewhere in `thread_create`. Probably before the `thread_unblock` call
-* The new thread is not `thread_current` in `thread_create`
+Reopen check is done in inode_open.
 
-Wait twice fails. sema_down even if it has waited already
-Wait does not check status
+Does inode_open need to be locked
+
+###
+Does the inode_list_lock need to lock the whole open_cnt == 0 if stmt or just the list removal part in close
+
+
