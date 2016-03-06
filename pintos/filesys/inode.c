@@ -35,11 +35,12 @@ struct inode
   {
     struct list_elem elem;              /* Element in inode list. */
     disk_sector_t sector;               /* Sector number of disk location. */
-    int open_cnt;                       /* Number of openers. */
+    int open_cnt;                       /* NUmber of threads with the file open */
     bool removed;                       /* True if deleted, false otherwise. */
     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
     struct inode_disk data;             /* Inode content. */
 
+    int reader_count;                       /* Number of readers currently reading the file */
     /*
      * The lock for the actual reading/writing. If one writer is writing or at least
      * one reader is reading, the resource will be locked. While a writer is writing,
@@ -148,6 +149,7 @@ inode_open (disk_sector_t sector)
   /* Allocate memory. */
   inode = malloc (sizeof *inode);
   if (inode == NULL)
+    lock_release(&inode_list_lock);
     return NULL;
 
   /* Initialize. */
@@ -157,8 +159,8 @@ inode_open (disk_sector_t sector)
   inode->removed = false;
   disk_read (filesys_disk, inode->sector, &inode->data);
 
-  lock_init(inode->reader_writer_lock);
-  lock_init(inode->internal_lock);
+  lock_init(&inode->reader_writer_lock);
+  lock_init(&inode->internal_lock);
 
   //Push the node into the list and unlock the list for other modifications
   list_push_front (&open_inodes, &inode->elem);
@@ -175,9 +177,9 @@ inode_reopen (struct inode *inode)
     {
       ASSERT(inode->open_cnt != 0);
 
-      lock_acquire(&internal_lock)
+      lock_acquire(&inode->internal_lock);
       inode->open_cnt++;
-      lock_release(&internal_lock);
+      lock_release(&inode->internal_lock);
     }
   return inode;
 }
@@ -199,14 +201,16 @@ inode_close (struct inode *inode)
   if (inode == NULL)
     return;
 
-  lock_acquire(internal_lock);
+  //Acquire both the internal and global inode locks. Internal is required so nobody can change the
+  //open_cnt variable while the external lock is required so nobody can get a new pointer to the node
+  //while it's being deleted and later freed which would result in a dangling pointer.
+  lock_acquire(&inode_list_lock);
+  lock_acquire(&inode->internal_lock);
   /* Release resources if this was the last opener. */
   if (--inode->open_cnt == 0)
     {
-      lock_acquire(&inode_list_lock);
       /* Remove from inode list and release lock. */
       list_remove (&inode->elem);
-      lock_release(&inode_list_lock);
  
       /* Deallocate blocks if removed. */
       if (inode->removed) 
@@ -220,8 +224,9 @@ inode_close (struct inode *inode)
     }
   else
     {
-      lock_release(&internal_lock);
+      lock_release(&inode->internal_lock);
     }
+  lock_release(&inode_list_lock);
 }
 
 /* Marks INODE to be deleted when it is closed by the last caller who
@@ -242,6 +247,15 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
   uint8_t *buffer = buffer_;
   off_t bytes_read = 0;
   uint8_t *bounce = NULL;
+
+  lock_acquire(&inode->internal_lock);
+  inode->reader_count++;
+  //We are the first reader, lock the resource for writers and start reading
+  if(inode->reader_count == 1)
+  {
+    lock_acquire(&inode->reader_writer_lock);
+  }
+  lock_release(&inode->internal_lock);
 
   while (size > 0) 
     {
@@ -285,6 +299,14 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
     }
   free (bounce);
 
+  lock_acquire(&inode->internal_lock);
+  inode->reader_count--;
+  //If we are the last reader, we need to open back up for writers
+  if(inode->reader_count == 0)
+  {
+    lock_release(&inode->reader_writer_lock);
+  }
+  lock_release(&inode->internal_lock);
   return bytes_read;
 }
 
@@ -297,6 +319,7 @@ off_t
 inode_write_at (struct inode *inode, const void *buffer_, off_t size,
                 off_t offset) 
 {
+  lock_acquire(&inode->reader_writer_lock);
   const uint8_t *buffer = buffer_;
   off_t bytes_written = 0;
   uint8_t *bounce = NULL;
@@ -353,6 +376,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
     }
   free (bounce);
 
+  lock_release(&inode->reader_writer_lock);
   return bytes_written;
 }
 
