@@ -1,0 +1,1611 @@
+diff --git a/.gitignore b/.gitignore
+index 7f870ea..95de623 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -106,3 +106,5 @@ examples
+ 
+ TAGS
+ tags
++
++.clang_complete
+\ No newline at end of file
+diff --git a/pintos/devices/timer.c b/pintos/devices/timer.c
+index 6dcab35..87f050e 100644
+--- a/pintos/devices/timer.c
++++ b/pintos/devices/timer.c
+@@ -101,21 +101,21 @@ timer_ticks (void)
+ /* Returns the number of timer ticks elapsed since THEN, which
+    should be a value once returned by timer_ticks(). */
+ int64_t
+-timer_elapsed (int64_t then) 
++timer_elapsed (int64_t then)
+ {
+   return timer_ticks () - then;
+ }
+ 
+-bool sleep_time_compare(const struct list_elem *a, const struct list_elem *b, void *aux)
++bool sleep_time_compare(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED)
+ {
+   struct sleeping_thread* thread_a = list_entry(a, struct sleeping_thread, elem);
+   struct sleeping_thread* thread_b = list_entry(b, struct sleeping_thread, elem);
+-  return thread_a->time_to_wake_up <= thread_b->time_to_wake_up;
++  return thread_a->time_to_wake_up < thread_b->time_to_wake_up;
+ }
+ 
+ /* Suspends execution for approximately TICKS timer ticks. */
+ void
+-timer_sleep (int64_t ticks) 
++timer_sleep (int64_t ticks)
+ {
+   int64_t start = timer_ticks ();
+ 
+@@ -136,7 +136,6 @@ timer_sleep (int64_t ticks)
+ 
+   // Sleep
+   sema_down(&sleeping.thread_lock);
+-
+ }
+ 
+ /* Suspends execution for approximately MS milliseconds. */
+diff --git a/pintos/examples/Makefile b/pintos/examples/Makefile
+index 197f0b4..d39ae26 100644
+--- a/pintos/examples/Makefile
++++ b/pintos/examples/Makefile
+@@ -3,10 +3,10 @@ SRCDIR = ..
+ # Test programs to compile, and a list of sources for each.
+ # To add a new test, put its name on the PROGS list
+ # and then add a name_SRC line that lists its source files.
+-PROGS = cat cmp cp echo halt hex-dump ls mcat mcp mkdir pwd rm hello shell touch \
++PROGS = cat cmp cp echo halt hex-dump ls mcat mcp mkdir pwd rm shell touch \
+ 	bubsort insult lineup matmult recursor \
+ 	sumargv lab2test lab1test pfs pfs_reader pfs_writer dummy longrun \
+-	child parent create-bad files
++	child parent create-bad files yolo filesysTest
+ 
+ # Added test programs
+ sumargv_SRC = sumargv.c
+@@ -20,6 +20,7 @@ dummy_SRC = dummy.c
+ child_SRC = child.c
+ parent_SRC = parent.c
+ create-bad_SRC = create-bad.c
++filesysTest_SRC = filesys.c
+ 
+ # Should work from project 2 onward.
+ cat_SRC = cat.c
+@@ -35,8 +36,13 @@ recursor_SRC = recursor.c
+ rm_SRC = rm.c
+ hello_SRC = hello.c
+ 
++hugeWhile_SRC = hugeWhile.c
++
++yolo_SRC = yolo.c
+ touch_SRC = touch.c
+ files_SRC = files.c
++#makebaby_SRC = makebaby.c
++#babyargcount_SRC = babyargcount.c
+ 
+ # Should work in project 3; also in project 4 if VM is included.
+ bubsort_SRC = bubsort.c
+diff --git a/pintos/examples/filesys.c b/pintos/examples/filesys.c
+new file mode 100644
+index 0000000..83d60e6
+--- /dev/null
++++ b/pintos/examples/filesys.c
+@@ -0,0 +1,243 @@
++#include "../lib/user/syscall.h"
++#include <stdio.h>
++#include <string.h>
++
++int success = 1;
++int total_success = 1;
++const unsigned test_len = 512;
++char* file_content = NULL;
++
++static void test_success()
++{
++    if(!success)
++    {
++        printf("TEST FAIL\n");
++
++        total_success = 0;
++    }
++    else
++    {
++        printf("TEST PASS\n");
++    }
++
++    success = 1;
++}
++
++static int create_and_open_file(char* filename)
++{
++    printf("Creating file\n");
++
++    //Create a test file
++    bool create_success = create(filename, test_len);
++
++    if(!create_success)
++    {
++        printf("WARNING: File creation failed, does the file exist?\n");
++    }
++    int fd = open(filename);
++
++    if(fd == -1)
++    {
++        printf("Opening file failed\n");
++        success = 0;
++    }
++
++    printf("Opened file\n");
++    return fd;
++}
++
++
++
++static void write_file(int fd)
++{
++    printf("Starting write test\n");
++    //Generate content for it
++
++    for(unsigned i = 0; i < test_len; ++i)
++    {
++        //Selecting 'random' printable ascii chars
++        file_content[i] = 33 + i % (126 - 33);
++    }
++
++    //Write that content
++    unsigned amount = write(fd, file_content, 512);
++
++    if(amount != test_len)
++    {
++        printf("Incorrect number of bytes written. Wrote %i, expected %i\n", amount, test_len);
++
++        success = 0;
++    }
++
++    test_success();
++}
++
++static void filesize_test(int fd)
++{
++    printf("Filesize test\n");
++    int fz = filesize(fd);
++    
++    if(fz != test_len)
++    {
++        printf("Filesize is wrong. Got %i, expected %i\n", fz, test_len);
++        success = 0;
++    }
++
++    test_success();
++}
++
++static void regular_read_test(int fd)
++{
++    printf("Regular read test\n");
++    char read_buff[test_len];
++
++    read(fd, read_buff, test_len);
++
++    for(unsigned i = 0; i < test_len; ++i)
++    {
++        if(file_content[i] != read_buff[i])
++        {
++            printf("Read %c but expected %c when reading sequentially\n", file_content[i], read_buff[i]);
++
++            success = 0;
++        }
++    }
++
++    test_success();
++}
++
++static void seek_test(int fd)
++{
++    printf("Seek test\n");
++    const unsigned seek_amount = 5;
++    unsigned seek_spots[5];
++    
++    seek_spots[0] = 50;
++    seek_spots[1] = 25; 
++    seek_spots[2] = 1 ;
++    seek_spots[3] = 10;
++    seek_spots[4] = 40;
++
++    for(unsigned i = 0; i < seek_amount; ++i)
++    {
++        seek(fd, seek_spots[i]);
++
++        char buffer;
++        int amount = read(fd, &buffer, 1);
++
++        if(amount != 1)
++        {
++            printf("Read %i bytes, expected %i\n", amount, 1);
++
++            success = 0;
++        }
++
++        if(buffer != file_content[seek_spots[i]])
++        {
++            printf("Read %c, expected %c when seeking to %i\n", buffer, file_content[seek_spots[i]], seek_spots[i]);
++            
++            success = 0;
++        }
++    }
++
++
++    test_success();
++}
++static void edge_seek_test(int fd)
++{
++    printf("Seek beyond file edge test\n");
++    const unsigned edge_amount = 4;
++    unsigned edge_spots[edge_amount];
++    
++    edge_spots[0] = 0;
++    edge_spots[1] = 1;
++    edge_spots[2] = 2; 
++    edge_spots[3] = 500;
++
++    for(unsigned i = 0; i < edge_amount; ++i)
++    {
++        unsigned final_spot = test_len + edge_spots[i];
++        seek(fd, final_spot);
++
++        char buffer;
++        int amount = read(fd, &buffer, 1);
++
++        if(amount != 1)
++        {
++            printf("Read %i bytes, expected %i\n", amount, 1);
++
++            success = 0;
++        }
++
++        if(buffer != file_content[test_len-1])
++        {
++            printf("Read '%c', expected when reading %i'%c'\n", buffer, file_content[test_len-1], final_spot);
++            
++            success = 0;
++        }
++    }
++
++    test_success();
++}
++
++static void remove_test(int fd, char* filename)
++{
++    printf("File removal test\n");
++    close(fd);
++    int removed = remove(filename);
++
++    if(!removed)
++    {
++        printf("File removal failed");
++        success = 0;
++    }
++
++    test_success();
++}
++
++int main()
++{
++    char* filename = "test";
++    int fd= create_and_open_file(filename);
++
++    //Array that will store the file content
++    char fc[test_len];
++    file_content = fc;
++
++    //The file couldn't be opened. Quit now because nothing else will pass
++    if(fd == -1)
++    {
++        printf("File could not be opened\n");
++        return -1;
++    }
++
++    write_file(fd);
++
++
++    close(fd);
++
++    //Reopen and test read functions
++    fd = open(filename);
++    if(fd == -1)
++    {
++        printf("Opening file failed when opening to read\n");
++        return -1;
++    }
++
++    filesize_test(fd);
++
++    regular_read_test(fd);
++
++    seek_test(fd);
++
++    edge_seek_test(fd);
++
++    remove_test(fd, filename);
++    
++    printf("Single threaded tests done\n");
++
++    if(total_success)
++    {
++        printf("All tests PASSED\n");
++    }
++}
+diff --git a/pintos/examples/yolo.c b/pintos/examples/yolo.c
+new file mode 100644
+index 0000000..e756a8d
+--- /dev/null
++++ b/pintos/examples/yolo.c
+@@ -0,0 +1,10 @@
++#include <stdbool.h>
++#include <stdio.h>
++#include <string.h>
++#include <syscall.h>
++
++int main()
++{
++  unsigned tid = exec("swag");
++  printf("Started process %i\n", tid);
++}
+diff --git a/pintos/filesys/directory.c b/pintos/filesys/directory.c
+index 0d265d5..c3e5172 100644
+--- a/pintos/filesys/directory.c
++++ b/pintos/filesys/directory.c
+@@ -5,7 +5,9 @@
+ #include "filesys/filesys.h"
+ #include "filesys/inode.h"
+ #include "threads/malloc.h"
++#include "threads/synch.h"
+ 
++struct lock lock_dir;
+ /* A directory. */
+ struct dir 
+   {
+@@ -26,6 +28,7 @@ struct dir_entry
+ bool
+ dir_create (disk_sector_t sector, size_t entry_cnt) 
+ {
++  lock_init(&lock_dir);
+   return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+ }
+ 
+@@ -152,6 +155,8 @@ dir_add (struct dir *dir, const char *name, disk_sector_t inode_sector)
+   if (*name == '\0' || strlen (name) > NAME_MAX)
+     return false;
+ 
++  lock_acquire(&lock_dir);
++
+   /* Check that NAME is not in use. */
+   if (lookup (dir, name, NULL, NULL))
+     goto done;
+@@ -175,6 +180,8 @@ dir_add (struct dir *dir, const char *name, disk_sector_t inode_sector)
+   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
+ 
+  done:
++  lock_release(&lock_dir);
++
+   return success;
+ }
+ 
+@@ -192,6 +199,7 @@ dir_remove (struct dir *dir, const char *name)
+   ASSERT (dir != NULL);
+   ASSERT (name != NULL);
+ 
++  lock_acquire(&lock_dir);
+   /* Find directory entry. */
+   if (!lookup (dir, name, &e, &ofs))
+     goto done;
+@@ -212,6 +220,8 @@ dir_remove (struct dir *dir, const char *name)
+ 
+  done:
+   inode_close (inode);
++
++  lock_release(&lock_dir);
+   return success;
+ }
+ 
+diff --git a/pintos/filesys/file.c b/pintos/filesys/file.c
+index d5fc10d..572394f 100644
+--- a/pintos/filesys/file.c
++++ b/pintos/filesys/file.c
+@@ -2,6 +2,7 @@
+ #include <debug.h>
+ #include "filesys/inode.h"
+ #include "threads/malloc.h"
++#include <stdio.h>
+ 
+ /* An open file. */
+ struct file 
+@@ -18,7 +19,7 @@ struct file *
+ file_open (struct inode *inode) 
+ {
+   struct file *file = calloc (1, sizeof *file);
+-  if (inode != NULL && file != NULL)
++  if (inode != NULL && file != NULL && !inode_is_removed(inode))
+     {
+       file->inode = inode;
+       file->pos = 0;
+@@ -155,6 +156,11 @@ file_seek (struct file *file, off_t new_pos)
+ {
+   ASSERT (file != NULL);
+   ASSERT (new_pos >= 0);
++  
++  //Ensure that the new pos is within the borders of the file. 
++  if (new_pos >= file_length(file))
++    new_pos = file_length(file) - 1;
++
+   file->pos = new_pos;
+ }
+ 
+diff --git a/pintos/filesys/free-map.c b/pintos/filesys/free-map.c
+index 1cd9175..25503ad 100644
+--- a/pintos/filesys/free-map.c
++++ b/pintos/filesys/free-map.c
+@@ -4,14 +4,19 @@
+ #include "filesys/file.h"
+ #include "filesys/filesys.h"
+ #include "filesys/inode.h"
++#include "threads/synch.h"
+ 
+ static struct file *free_map_file;   /* Free map file. */
+ static struct bitmap *free_map;      /* Free map, one bit per disk sector. */
+ 
++static struct lock free_map_lock;
++
+ /* Initializes the free map. */
+ void
+ free_map_init (void) 
+ {
++  lock_init(&free_map_lock);
++
+   free_map = bitmap_create (disk_size (filesys_disk));
+   if (free_map == NULL)
+     PANIC ("bitmap creation failed--disk is too large");
+@@ -26,6 +31,7 @@ free_map_init (void)
+ bool
+ free_map_allocate (size_t cnt, disk_sector_t *sectorp) 
+ {
++  lock_acquire(&free_map_lock);
+   disk_sector_t sector = bitmap_scan_and_flip (free_map, 0, cnt, false);
+   if (sector != BITMAP_ERROR
+       && free_map_file != NULL
+@@ -36,6 +42,8 @@ free_map_allocate (size_t cnt, disk_sector_t *sectorp)
+     }
+   if (sector != BITMAP_ERROR)
+     *sectorp = sector;
++
++  lock_release(&free_map_lock);
+   return sector != BITMAP_ERROR;
+ }
+ 
+@@ -43,20 +51,24 @@ free_map_allocate (size_t cnt, disk_sector_t *sectorp)
+ void
+ free_map_release (disk_sector_t sector, size_t cnt)
+ {
++  lock_acquire(&free_map_lock);
+   ASSERT (bitmap_all (free_map, sector, cnt));
+   bitmap_set_multiple (free_map, sector, cnt, false);
+   bitmap_write (free_map, free_map_file);
++  lock_release(&free_map_lock);
+ }
+ 
+ /* Opens the free map file and reads it from disk. */
+ void
+ free_map_open (void) 
+ {
++  lock_acquire(&free_map_lock);
+   free_map_file = file_open (inode_open (FREE_MAP_SECTOR));
+   if (free_map_file == NULL)
+     PANIC ("can't open free map");
+   if (!bitmap_read (free_map, free_map_file))
+     PANIC ("can't read free map");
++  lock_release(&free_map_lock);
+ }
+ 
+ /* Writes the free map to disk and closes the free map file. */
+diff --git a/pintos/filesys/inode.c b/pintos/filesys/inode.c
+index cfdcb7b..1606388 100644
+--- a/pintos/filesys/inode.c
++++ b/pintos/filesys/inode.c
+@@ -10,6 +10,8 @@
+ /* Identifies an inode. */
+ #define INODE_MAGIC 0x494e4f44
+ 
++struct lock inode_list_lock; 
++
+ /* On-disk inode.
+    Must be exactly DISK_SECTOR_SIZE bytes long. */
+ struct inode_disk
+@@ -33,10 +35,24 @@ struct inode
+   {
+     struct list_elem elem;              /* Element in inode list. */
+     disk_sector_t sector;               /* Sector number of disk location. */
+-    int open_cnt;                       /* Number of openers. */
++    int open_cnt;                       /* NUmber of threads with the file open */
+     bool removed;                       /* True if deleted, false otherwise. */
+     int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
+     struct inode_disk data;             /* Inode content. */
++
++    int reader_count;                       /* Number of readers currently reading the file */
++    /*
++     * The lock for the actual reading/writing. If one writer is writing or at least
++     * one reader is reading, the resource will be locked. While a writer is writing,
++     * the resource will be locked until it is done, at which point more readers or writers
++     * can enter.
++     */
++    struct lock reader_writer_lock;
++
++    /*
++     * Lock for the internal variables in the inode
++     */
++    struct lock internal_lock;
+   };
+ 
+ /* Returns the disk sector that contains byte offset POS within
+@@ -62,6 +78,8 @@ void
+ inode_init (void) 
+ {
+   list_init (&open_inodes);
++
++  lock_init(&inode_list_lock);
+ }
+ 
+ /* Initializes an inode with LENGTH bytes of data and
+@@ -114,6 +132,8 @@ inode_open (disk_sector_t sector)
+   struct list_elem *e;
+   struct inode *inode;
+ 
++  //Lock anyone else out of the inode list
++  lock_acquire(&inode_list_lock);
+   /* Check whether this inode is already open. */
+   for (e = list_begin (&open_inodes); e != list_end (&open_inodes);
+        e = list_next (e)) 
+@@ -122,22 +142,34 @@ inode_open (disk_sector_t sector)
+       if (inode->sector == sector) 
+         {
+           inode_reopen (inode);
++          lock_release(&inode_list_lock);
+           return inode; 
+         }
+     }
+ 
++
+   /* Allocate memory. */
+   inode = malloc (sizeof *inode);
+   if (inode == NULL)
++  {
++    lock_release(&inode_list_lock);
+     return NULL;
++  }
+ 
+   /* Initialize. */
+-  list_push_front (&open_inodes, &inode->elem);
+   inode->sector = sector;
+   inode->open_cnt = 1;
+   inode->deny_write_cnt = 0;
+   inode->removed = false;
+   disk_read (filesys_disk, inode->sector, &inode->data);
++
++  lock_init(&inode->reader_writer_lock);
++  lock_init(&inode->internal_lock);
++
++  //Push the node into the list and unlock the list for other modifications
++  list_push_front (&open_inodes, &inode->elem);
++  lock_release(&inode_list_lock);
++
+   return inode;
+ }
+ 
+@@ -148,7 +180,10 @@ inode_reopen (struct inode *inode)
+   if (inode != NULL) 
+     {
+       ASSERT(inode->open_cnt != 0);
++
++      lock_acquire(&inode->internal_lock);
+       inode->open_cnt++;
++      lock_release(&inode->internal_lock);
+     }
+   return inode;
+ }
+@@ -170,6 +205,11 @@ inode_close (struct inode *inode)
+   if (inode == NULL)
+     return;
+ 
++  //Acquire both the internal and global inode locks. Internal is required so nobody can change the
++  //open_cnt variable while the external lock is required so nobody can get a new pointer to the node
++  //while it's being deleted and later freed which would result in a dangling pointer.
++  lock_acquire(&inode_list_lock);
++  lock_acquire(&inode->internal_lock);
+   /* Release resources if this was the last opener. */
+   if (--inode->open_cnt == 0)
+     {
+@@ -186,6 +226,11 @@ inode_close (struct inode *inode)
+ 
+       free (inode); 
+     }
++  else
++    {
++      lock_release(&inode->internal_lock);
++    }
++  lock_release(&inode_list_lock);
+ }
+ 
+ /* Marks INODE to be deleted when it is closed by the last caller who
+@@ -207,6 +252,15 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
+   off_t bytes_read = 0;
+   uint8_t *bounce = NULL;
+ 
++  lock_acquire(&inode->internal_lock);
++  inode->reader_count++;
++  //We are the first reader, lock the resource for writers and start reading
++  if(inode->reader_count == 1)
++  {
++    lock_acquire(&inode->reader_writer_lock);
++  }
++  lock_release(&inode->internal_lock);
++
+   while (size > 0) 
+     {
+       /* Disk sector to read, starting byte offset within sector. */
+@@ -249,6 +303,14 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
+     }
+   free (bounce);
+ 
++  lock_acquire(&inode->internal_lock);
++  inode->reader_count--;
++  //If we are the last reader, we need to open back up for writers
++  if(inode->reader_count == 0)
++  {
++    lock_release(&inode->reader_writer_lock);
++  }
++  lock_release(&inode->internal_lock);
+   return bytes_read;
+ }
+ 
+@@ -261,6 +323,7 @@ off_t
+ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
+                 off_t offset) 
+ {
++  lock_acquire(&inode->reader_writer_lock);
+   const uint8_t *buffer = buffer_;
+   off_t bytes_written = 0;
+   uint8_t *bounce = NULL;
+@@ -317,6 +380,7 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
+     }
+   free (bounce);
+ 
++  lock_release(&inode->reader_writer_lock);
+   return bytes_written;
+ }
+ 
+@@ -346,3 +410,8 @@ inode_length (const struct inode *inode)
+ {
+   return inode->data.length;
+ }
++
++bool inode_is_removed(const struct inode* node)
++{
++  return node->removed;
++}
+diff --git a/pintos/filesys/inode.h b/pintos/filesys/inode.h
+index be7df63..1cf3916 100644
+--- a/pintos/filesys/inode.h
++++ b/pintos/filesys/inode.h
+@@ -4,6 +4,7 @@
+ #include <stdbool.h>
+ #include "filesys/off_t.h"
+ #include "devices/disk.h"
++#include "threads/synch.h"
+ 
+ struct bitmap;
+ 
+@@ -20,4 +21,6 @@ void inode_deny_write (struct inode *);
+ void inode_allow_write (struct inode *);
+ off_t inode_length (const struct inode *);
+ 
++bool inode_is_removed(const struct inode*);
++
+ #endif /* filesys/inode.h */
+diff --git a/pintos/notes.md b/pintos/notes.md
+new file mode 100644
+index 0000000..a1a7c74
+--- /dev/null
++++ b/pintos/notes.md
+@@ -0,0 +1,15 @@
++File stuff
++==========
++Inodes are pointers to disk. Each process that opens a specific file should have the same inode for that file.
++
++Reopen check is done in inode_open.
++
++Does inode_open need to be locked
++
++###
++Does the inode_list_lock need to lock the whole open_cnt == 0 if stmt or just the list removal part in close
++
++You probably need to lock the whole inode list throughout inode_close to avoid another thread getting a ptr
++to an inode that is about to be deleted
++
++
+diff --git a/pintos/tests/userprog/Make.tests b/pintos/tests/userprog/Make.tests
+index c762af3..1258582 100644
+--- a/pintos/tests/userprog/Make.tests
++++ b/pintos/tests/userprog/Make.tests
+@@ -8,16 +8,18 @@ args-single args-multiple args-many args-dbl-space sc-bad-sp		\
+ sc-bad-arg sc-boundary sc-boundary-2 halt exit create-normal		\
+ create-empty create-null create-bad-ptr create-long create-exists	\
+ create-bound open-normal open-missing open-boundary open-empty		\
+-open-null open-bad-ptr open-twice close-normal close-stdin	\
+-close-stdout close-bad-fd read-bad-ptr read-boundary	\
++open-null open-bad-ptr open-twice close-normal close-twice close-stdin	\
++close-stdout close-bad-fd read-normal read-bad-ptr read-boundary	\
+ read-zero read-stdout read-bad-fd write-normal write-bad-ptr		\
+ write-boundary write-zero write-stdin write-bad-fd exec-once exec-arg	\
+ exec-multiple exec-missing exec-bad-ptr wait-simple wait-twice		\
+-wait-killed wait-bad-pid multi-recurse 	\
+-)
++wait-killed wait-bad-pid multi-recurse multi-child-fd)
++
++
+ 
+ tests/userprog_PROGS = $(tests/userprog_TESTS) $(addprefix \
+-tests/userprog/,child-simple child-args child-bad child-close child-rox)
++tests/userprog/,child-simple child-args child-bad child-close)
++
+ 
+ tests/userprog/args-none_SRC = tests/userprog/args.c
+ tests/userprog/args-single_SRC = tests/userprog/args.c
+@@ -26,12 +28,7 @@ tests/userprog/args-many_SRC = tests/userprog/args.c
+ tests/userprog/args-dbl-space_SRC = tests/userprog/args.c
+ tests/userprog/sc-bad-sp_SRC = tests/userprog/sc-bad-sp.c tests/main.c
+ tests/userprog/sc-bad-arg_SRC = tests/userprog/sc-bad-arg.c tests/main.c
+-tests/userprog/bad-read_SRC = tests/userprog/bad-read.c tests/main.c
+-tests/userprog/bad-write_SRC = tests/userprog/bad-write.c tests/main.c
+-tests/userprog/bad-jump_SRC = tests/userprog/bad-jump.c tests/main.c
+-tests/userprog/bad-read2_SRC = tests/userprog/bad-read2.c tests/main.c
+-tests/userprog/bad-write2_SRC = tests/userprog/bad-write2.c tests/main.c
+-tests/userprog/bad-jump2_SRC = tests/userprog/bad-jump2.c tests/main.c
++
+ tests/userprog/sc-boundary_SRC = tests/userprog/sc-boundary.c	\
+ tests/userprog/boundary.c tests/main.c
+ tests/userprog/sc-boundary-2_SRC = tests/userprog/sc-boundary-2.c	\
+@@ -86,16 +83,13 @@ tests/userprog/wait-bad-pid_SRC = tests/userprog/wait-bad-pid.c tests/main.c
+ tests/userprog/multi-recurse_SRC = tests/userprog/multi-recurse.c
+ tests/userprog/multi-child-fd_SRC = tests/userprog/multi-child-fd.c	\
+ tests/main.c
+-tests/userprog/rox-simple_SRC = tests/userprog/rox-simple.c tests/main.c
+-tests/userprog/rox-child_SRC = tests/userprog/rox-child.c tests/main.c
+-tests/userprog/rox-multichild_SRC = tests/userprog/rox-multichild.c	\
+-tests/main.c
++
+ 
+ tests/userprog/child-simple_SRC = tests/userprog/child-simple.c
+ tests/userprog/child-args_SRC = tests/userprog/args.c
+ tests/userprog/child-bad_SRC = tests/userprog/child-bad.c tests/main.c
+ tests/userprog/child-close_SRC = tests/userprog/child-close.c
+-tests/userprog/child-rox_SRC = tests/userprog/child-rox.c
++
+ 
+ $(foreach prog,$(tests/userprog_PROGS),$(eval $(prog)_SRC += tests/lib.c))
+ 
+@@ -128,5 +122,4 @@ tests/userprog/wait-twice_PUTFILES += tests/userprog/child-simple
+ tests/userprog/exec-arg_PUTFILES += tests/userprog/child-args
+ tests/userprog/multi-child-fd_PUTFILES += tests/userprog/child-close
+ tests/userprog/wait-killed_PUTFILES += tests/userprog/child-bad
+-tests/userprog/rox-child_PUTFILES += tests/userprog/child-rox
+-tests/userprog/rox-multichild_PUTFILES += tests/userprog/child-rox
++
+diff --git a/pintos/threads/thread.c b/pintos/threads/thread.c
+index dcca77d..c7469c0 100644
+--- a/pintos/threads/thread.c
++++ b/pintos/threads/thread.c
+@@ -11,6 +11,8 @@
+ #include "threads/switch.h"
+ #include "threads/synch.h"
+ #include "threads/vaddr.h"
++#include "threads/malloc.h"
++#include "filesys/file.h"
+ #ifdef USERPROG
+ #include "userprog/process.h"
+ #endif
+@@ -167,6 +169,9 @@ thread_create (const char *name, int priority,
+   struct switch_threads_frame *sf;
+   tid_t tid;
+ 
++  struct thread* parent = thread_current();
++
++
+   ASSERT (function != NULL);
+ 
+   /* Allocate thread. */
+@@ -192,12 +197,68 @@ thread_create (const char *name, int priority,
+   sf = alloc_frame (t, sizeof *sf);
+   sf->eip = switch_entry;
+ 
++
++  //If the current thread exists, it is the new threads parent. Set the parent-child
++  //stuff and unblock the parent
++  if(is_thread(parent))
++  {
++    add_child_process(parent, t);
++  }
++
+   /* Add to run queue. */
+   thread_unblock (t);
+-
++  
+   return tid;
+ }
+ 
++void init_child_status(struct child_status* cs)
++{
++  cs->parent = NULL;
++
++  cs->exit_status = -1;
++  cs->refs = 0;
++  cs->start_success = true;
++  cs->is_checked = false;
++
++  sema_init(&cs->sema_wait, 0);
++}
++void add_child_process(struct thread* parent, struct thread* child)
++{
++  struct child_status* cs = malloc(sizeof(struct child_status));
++  init_child_status(cs);
++
++  cs->parent = parent;
++
++  cs->original_tid = child->tid;
++  
++  cs->refs = 2;
++
++  child->self_status = cs;
++  list_push_back(&parent->children, &cs->elem);
++}
++
++
++/* Return the  child_status struct of a thread with tid_t = tid from the currtent_theard*/
++struct child_status* get_child_status(tid_t tid)
++{
++  struct thread* curr_thread = thread_current();
++
++  struct list_elem* curr_elem = list_begin(&curr_thread->children);
++  while(curr_elem != list_end(&curr_thread->children))
++  {
++    struct child_status* cs = list_entry(curr_elem, struct child_status, elem);
++
++    if(cs->original_tid == tid)
++    {
++      return cs;
++    }
++
++    curr_elem = list_next(curr_elem);
++  }
++
++  return NULL;
++}
++
+ /* Puts the current thread to sleep.  It will not be scheduled
+    again until awoken by thread_unblock().
+ 
+@@ -269,6 +330,20 @@ thread_tid (void)
+   return thread_current ()->tid;
+ }
+ 
++void try_free_parent_child_struct(struct child_status* cs)
++{
++  if(cs != NULL)
++  {
++    --cs->refs;
++
++    ////The status is not used anywhere else, free the memory
++    if(cs->refs == 0)
++    {
++      free(cs);
++    }
++  }
++}
++
+ /* Deschedules the current thread and destroys it.  Never
+    returns to the caller. */
+ void
+@@ -276,11 +351,11 @@ thread_exit (void)
+ {
+   ASSERT (!intr_context ());
+ 
++  struct thread* curr_thread = thread_current();
+ #ifdef USERPROG
+   process_exit ();
+ 
+   //Go through all the open files and close them
+-  struct thread* curr_thread = thread_current();
+ 
+   unsigned i;
+   for(i = 2; i < MAX_PROCESS_FILES; ++i)
+@@ -292,6 +367,22 @@ thread_exit (void)
+   }
+ #endif
+ 
++  //Free the status struct 
++  try_free_parent_child_struct(curr_thread->self_status);
++
++  //Free the list of child process statuses if they have exited
++  struct list_elem* curr_elem = list_begin(&curr_thread->children);
++
++  while(curr_elem != list_end(&curr_thread->children))
++  {
++    struct child_status* cs = list_entry(curr_elem, struct child_status, elem);
++
++    //The next elem needs to be extracted before freeing the memory
++    curr_elem = list_next(curr_elem);
++
++    try_free_parent_child_struct(cs);
++  }
++
+   /* Just set our status to dying and schedule another process.
+      We will be destroyed during the call to schedule_tail(). */
+   intr_disable ();
+@@ -300,6 +391,16 @@ thread_exit (void)
+   NOT_REACHED ();
+ }
+ 
++void thread_exit_with_status(int exit_status)
++{
++  thread_current()->self_status->exit_status = exit_status;
++  sema_up(&thread_current()->self_status->sema_wait);
++
++  printf("%s: exit(%d)\n", thread_current()->name, exit_status);
++
++  thread_exit();
++}
++
+ /* Yields the CPU.  The current thread is not put to sleep and
+    may be scheduled again immediately at the scheduler's whim. */
+ void
+@@ -444,10 +545,20 @@ init_thread (struct thread *t, const char *name, int priority)
+ 
+   memset (t, 0, sizeof *t);
+   t->status = THREAD_BLOCKED;
+-  strlcpy (t->name, name, sizeof t->name);
++  unsigned end = 0;
++  while (name[end] != ' ' && name[end] != '\0' && end + 1 < sizeof t->name)
++    end++;
++
++  /* printf("YOLOOOO\n"); */
++
++  strlcpy (t->name, name, end + 1);
+   t->stack = (uint8_t *) t + PGSIZE;
+   t->priority = priority;
+   t->magic = THREAD_MAGIC;
++
++  list_init(&t->children);
++
++  sema_init(&t->sema_pregnant, 0);
+ }
+ 
+ /* Allocates a SIZE-byte frame at the top of thread T's stack and
+diff --git a/pintos/threads/thread.h b/pintos/threads/thread.h
+index ec0f9c0..7fcc028 100644
+--- a/pintos/threads/thread.h
++++ b/pintos/threads/thread.h
+@@ -4,6 +4,7 @@
+ #include <debug.h>
+ #include <list.h>
+ #include <stdint.h>
++#include "threads/synch.h"
+ 
+ /* States in a thread's life cycle. */
+ enum thread_status
+@@ -26,6 +27,26 @@ typedef int tid_t;
+ 
+ #define MAX_PROCESS_FILES 128
+ 
++
++struct child_status
++{
++  struct list_elem elem;
++
++  struct thread* parent;
++
++  tid_t original_tid;
++
++  struct semaphore sema_wait;
++  int exit_status;
++
++  int refs;
++  
++  bool start_success;
++  bool is_checked;
++};
++
++void try_free_parent_child_struct(struct child_status* pc);
++
+ /* A kernel thread or user process.
+ 
+    Each thread structure is stored in its own 4 kB page.  The
+@@ -94,6 +115,13 @@ struct thread
+     /* Shared between thread.c and synch.c. */
+     struct list_elem elem;              /* List element. */
+ 
++    struct child_status* self_status;
++
++    struct semaphore sema_pregnant;
++
++    //List of child threads for this thread.
++    struct list children;
++
+ #ifdef USERPROG
+     /* Owned by userprog/process.c. */
+     uint32_t *pagedir;                  /* Page directory. */
+@@ -128,6 +156,7 @@ tid_t thread_tid (void);
+ const char *thread_name (void);
+ 
+ void thread_exit (void) NO_RETURN;
++void thread_exit_with_status(int exit_status);
+ void thread_yield (void);
+ 
+ int thread_get_priority (void);
+@@ -138,4 +167,10 @@ void thread_set_nice (int);
+ int thread_get_recent_cpu (void);
+ int thread_get_load_avg (void);
+ 
++void add_child_process(struct thread* parent, struct thread* child);
++
++void  init_child_status(struct child_status* cs);
++
++struct child_status* get_child_status(tid_t tid);
++
+ #endif /* threads/thread.h */
+diff --git a/pintos/userprog/Make.vars b/pintos/userprog/Make.vars
+index eebac65..22aec79 100644
+--- a/pintos/userprog/Make.vars
++++ b/pintos/userprog/Make.vars
+@@ -2,6 +2,6 @@
+ 
+ os.dsk: DEFINES = -DUSERPROG -DFILESYS
+ KERNEL_SUBDIRS = threads devices lib lib/kernel userprog filesys
+-TEST_SUBDIRS = tests/userprog #tests/userprog/no-vm tests/filesys/base
++TEST_SUBDIRS = tests/userprog tests/filesys/base
+ GRADING_FILE = $(SRCDIR)/tests/userprog/Grading
+ SIMULATOR = --qemu
+diff --git a/pintos/userprog/process.c b/pintos/userprog/process.c
+index a65b0db..4000205 100644
+--- a/pintos/userprog/process.c
++++ b/pintos/userprog/process.c
+@@ -17,10 +17,14 @@
+ #include "threads/palloc.h"
+ #include "threads/thread.h"
+ #include "threads/vaddr.h"
++#include "threads/malloc.h"
+ 
+ static thread_func start_process NO_RETURN;
+ static bool load (const char *cmdline, void (**eip) (void), void **esp);
+ 
++bool parse_args(struct list* argv, int* argc, const char* command, struct intr_frame* if_);
++void* push_args_to_stack(struct list* argv, int argc, void* stack_pointer);
++
+ /* Starts a new thread running a user program loaded from
+    FILENAME.  The new thread may be scheduled (and may even exit)
+    before process_execute() returns.  Returns the new process's
+@@ -37,34 +41,160 @@ process_execute (const char *file_name)
+   if (fn_copy == NULL)
+     return TID_ERROR;
+   strlcpy (fn_copy, file_name, PGSIZE);
++  
++  sema_init(&thread_current()->sema_pregnant, 0);
+ 
+   /* Create a new thread to execute FILE_NAME. */
+   tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
++
+   if (tid == TID_ERROR)
++  {
+     palloc_free_page (fn_copy); 
++  }
++  else
++  {
++    sema_down(&thread_current()->sema_pregnant);
++
++    if(!get_child_status(tid)->start_success)
++    {
++      tid = TID_ERROR;
++    }
++  }
++
+   return tid;
+ }
+ 
++struct arg_list_elem {
++  struct list_elem elem;
++
++  void* addr;
++};
++
++bool parse_args(struct list* argv, int* argc, const char* command, struct intr_frame* if_)
++{
++  int arg_start = 0;
++  int arg_end = 0;
++  char new_char;
++  void* stack_pointer = NULL;
++  do
++  {
++    new_char = command[arg_end];
++    if (new_char == ' ' || new_char == '\0')
++    {
++      int arg_len = arg_end - arg_start;
++      if (arg_len > 0)
++      {
++        // The first argument is the filename
++        if (arg_start == 0) 
++        {
++          char* file_name = malloc(arg_len + 1);
++
++          strlcpy(file_name, command, arg_len + 1);
++          bool success = load(file_name, &if_->eip, &if_->esp);
++          free(file_name);
++          if (!success)
++            return false;
++
++          stack_pointer = if_->esp;
++        }
++
++        // Push the argument to the stack
++        stack_pointer -= arg_len + 1;
++        strlcpy(stack_pointer, &command[arg_start], arg_len + 1);
++
++        struct arg_list_elem* new_arg = malloc(sizeof(struct arg_list_elem));
++        new_arg->addr = stack_pointer;
++        list_push_front(argv, &new_arg->elem);
++
++        (*argc)++;
++      }
++      arg_start = arg_end + 1;
++    }
++    arg_end++;
++  } while (new_char != '\0');
++
++  if_->esp = stack_pointer;
++  return true;
++}
++
++void* push_args_to_stack(struct list* argv, int argc, void* stack_pointer)
++{
++  // Word align stack pointer
++  unsigned stack_pointer_misalign = (unsigned)stack_pointer % 4;
++  stack_pointer -= stack_pointer_misalign;
++
++  // Push extra null pointer to end of argv
++  stack_pointer -= sizeof(char*);
++  *((char**)stack_pointer) = NULL;
++
++  // Push argv to stack
++  while(!list_empty(argv))
++  {
++    struct list_elem* e = list_pop_front(argv);
++    struct arg_list_elem *arg = list_entry(e, struct arg_list_elem, elem);
++
++    stack_pointer -= sizeof(char*);
++    *((char**)stack_pointer) = arg->addr;
++
++    free(arg);
++  }
++
++  // Push argv pointer to stack
++  stack_pointer -= sizeof(char*);
++  *((char**)stack_pointer) = stack_pointer + sizeof(char**);
++
++  // Push argc to stack
++  stack_pointer -= sizeof(int);
++  *((int*)stack_pointer) = argc;
++
++  // Push fake return address to stack
++  stack_pointer -= sizeof(void*);
++  *((void**)stack_pointer) = NULL;
++
++  return stack_pointer;
++}
++
+ /* A thread function that loads a user process and starts it
+    running. */
+ static void
+ start_process (void *file_name_)
+ {
+-  char *file_name = file_name_;
++  char *command = file_name_;
++  //char* file_name = file_name_;
+   struct intr_frame if_;
+-  bool success;
++  bool success = true;
+ 
+   /* Initialize interrupt frame and load executable. */
+   memset (&if_, 0, sizeof if_);
+   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
+   if_.cs = SEL_UCSEG;
+   if_.eflags = FLAG_IF | FLAG_MBS;
+-  success = load (file_name, &if_.eip, &if_.esp);
++
++  struct list argv;
++  list_init(&argv);
++
++  // Parse command to find all arguments
++  int argc = 0;
++  success = parse_args(&argv, &argc, command, &if_);
++
++  if (success)
++    if_.esp = push_args_to_stack(&argv, argc, if_.esp);
++
++  struct thread* parent = thread_current()->self_status->parent;
++
++  thread_current()->self_status->start_success = success;
++
++  if(parent != NULL)
++  {
++    sema_up(&parent->sema_pregnant);
++  }
+ 
+   /* If load failed, quit. */
+-  palloc_free_page (file_name);
+-  if (!success) 
++  palloc_free_page (file_name_);
++  if (!success)
++  {
+     thread_exit ();
++  }
+ 
+   /* Start the user process by simulating a return from an
+      interrupt, implemented by intr_exit (in
+@@ -86,10 +216,16 @@ start_process (void *file_name_)
+    This function will be implemented in problem 2-2.  For now, it
+    does nothing. */
+ int
+-process_wait (tid_t child_tid UNUSED) 
++process_wait (tid_t child_tid UNUSED)
+ {
+-  while(1)
++  struct child_status* cs = get_child_status(child_tid);
++
++  if(cs != NULL && !cs->is_checked)
+   {
++    cs->is_checked = true;
++    sema_down(&cs->sema_wait);
++
++    return cs->exit_status;
+   }
+   return -1;
+ }
+@@ -134,6 +270,32 @@ process_activate (void)
+      interrupts. */
+   tss_update ();
+ }
++
++void check_valid_user_pointer(void* pointer)
++{
++  //Make sure the pointer is below phys_base
++  if (!is_user_vaddr(pointer) || pagedir_get_page(thread_current()->pagedir, pointer) == NULL)
++  {
++    thread_exit_with_status(-1);
++  }
++}
++void check_valid_user_string(char* start)
++{
++  do
++  {
++    check_valid_user_pointer(start);
++    start++;
++  }
++  while(*start != '\0');
++}
++void check_valid_user_array(void* start, size_t size)
++{
++  size_t i;
++  for(i = 0; i < size; ++i)
++  {
++    check_valid_user_pointer(start + i);
++  }
++}
+ 
+ /* We load ELF binaries.  The following definitions are taken
+    from the ELF specification, [ELF1], more-or-less verbatim.  */
+@@ -488,8 +650,7 @@ setup_stack (void **esp)
+     {
+       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+       if (success)
+-        //*esp = PHYS_BASE;
+-        *esp = PHYS_BASE - 12;
++        *esp = PHYS_BASE;
+       else
+         palloc_free_page (kpage);
+     }
+diff --git a/pintos/userprog/process.h b/pintos/userprog/process.h
+index 688cd2a..b6f5873 100644
+--- a/pintos/userprog/process.h
++++ b/pintos/userprog/process.h
+@@ -8,4 +8,8 @@ int process_wait (tid_t);
+ void process_exit (void);
+ void process_activate (void);
+ 
++void check_valid_user_pointer(void* pointer);
++void check_valid_user_string(char* pointer);
++void check_valid_user_array(void* pointer, size_t size);
++
+ #endif /* userprog/process.h */
+diff --git a/pintos/userprog/syscall.c b/pintos/userprog/syscall.c
+index cad0fdf..fd6b186 100644
+--- a/pintos/userprog/syscall.c
++++ b/pintos/userprog/syscall.c
+@@ -6,31 +6,50 @@
+ #include "threads/init.h"
+ #include "filesys/filesys.h"
+ #include "devices/input.h"
++#include "userprog/process.h"
++#include "threads/vaddr.h"
++#include "pagedir.h"
+ 
+ #define MIN_FILE_ID 2
+ 
+ static void syscall_handler (struct intr_frame *);
+ 
++bool is_valid_user_pointer(void* pointer);
++
+ void
+-syscall_init (void) 
++syscall_init (void)
+ {
+   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+ }
+ 
+ struct file* get_file(unsigned fd)
+ {
+-  return thread_current()->open_files[fd];
++  if(fd < MAX_PROCESS_FILES)
++  {
++    return thread_current()->open_files[fd];
++  }
++  return NULL;
++}
++
++static void incr_stack_ptr_with_chk(void** ptr, unsigned amount)
++{
++  *ptr += amount;
++
++  check_valid_user_pointer(*ptr);
+ }
+ 
+ static void
+-syscall_handler (struct intr_frame *f UNUSED) 
++syscall_handler (struct intr_frame *f)
+ {
++  check_valid_user_pointer(f->esp);
++
+   int syscall_id = *((int*)f->esp);
+   void* stack_ptr = f->esp;
+ 
+-  stack_ptr += sizeof(void*);
++  incr_stack_ptr_with_chk(&stack_ptr, sizeof(void*));
++
+ 
+-  switch(syscall_id) 
++  switch(syscall_id)
+   {
+     case  SYS_HALT:
+     {
+@@ -39,15 +58,17 @@ syscall_handler (struct intr_frame *f UNUSED)
+     }
+     case SYS_EXIT:
+     {
+-      sys_exit();
++      sys_exit(stack_ptr);
+       break;
+     }
+     case SYS_EXEC:
+     {
++      sys_exec(f, stack_ptr);
+       break;
+     }
+     case SYS_WAIT:
+     {
++      sys_wait(f, stack_ptr);
+       break;
+     }
+     case SYS_CREATE:
+@@ -63,7 +84,6 @@ syscall_handler (struct intr_frame *f UNUSED)
+     case SYS_OPEN:
+     {
+       sys_open(f, stack_ptr);
+-      
+       break;
+     }
+     case SYS_FILESIZE:
+@@ -84,10 +104,12 @@ syscall_handler (struct intr_frame *f UNUSED)
+     }
+     case SYS_SEEK:
+     {
++      sys_seek(stack_ptr);
+       break;
+     }
+     case SYS_TELL:
+     {
++      sys_tell(stack_ptr);
+       break;
+     }
+     case SYS_CLOSE:
+@@ -96,7 +118,7 @@ syscall_handler (struct intr_frame *f UNUSED)
+       break;
+     }
+     default:
+-      break;
++      thread_exit_with_status(-1);
+   }
+ }
+ 
+@@ -104,7 +126,9 @@ void sys_create(struct intr_frame *f, void* stack_ptr)
+ {
+   //Fetch the filename and size
+   char* filename = *(char**)stack_ptr;
+-  stack_ptr += sizeof(char*);
++  check_valid_user_string(filename);
++
++  incr_stack_ptr_with_chk(&stack_ptr, sizeof(char*));
+   unsigned int size = *((unsigned int*)stack_ptr);
+ 
+   bool result = filesys_create(filename, size);
+@@ -116,7 +140,7 @@ void sys_remove(struct intr_frame* f, void* stack_ptr)
+ {
+   //Fetch the filename and size
+   char* filename = *(char**)stack_ptr;
+-  stack_ptr += sizeof(char*);
++  check_valid_user_string(filename);
+ 
+   bool result = filesys_remove(filename);
+ 
+@@ -129,6 +153,8 @@ void sys_open(struct intr_frame* f, void* stack_ptr)
+ 
+   //Kod skriven tillsammans med Hannes Tukalla
+   char* filename = *(char**)stack_ptr;
++  check_valid_user_string(filename);
++
+   int file_descriptor = -1;
+   struct file* opened_file = filesys_open(filename);
+ 
+@@ -153,11 +179,13 @@ void sys_open(struct intr_frame* f, void* stack_ptr)
+ void sys_write(struct intr_frame* f, void* stack_ptr)
+ {
+   int fd = *((int*) stack_ptr);
+-  stack_ptr += sizeof(int*);
++  incr_stack_ptr_with_chk(&stack_ptr, sizeof(int*));
+   void* buffer = *((void**) stack_ptr);
+-  stack_ptr += sizeof(void*);
++  incr_stack_ptr_with_chk(&stack_ptr, sizeof(void*));
+   unsigned size = *((unsigned*) stack_ptr);
+ 
++  check_valid_user_array(buffer, size);
++
+   int orig_size = size;
+   if (fd == STDOUT_FILENO) {
+     while (size > 0) {
+@@ -186,11 +214,13 @@ void sys_write(struct intr_frame* f, void* stack_ptr)
+ void sys_read(struct intr_frame* f, void* stack_ptr)
+ {
+   int fd = *((int*) stack_ptr);
+-  stack_ptr += sizeof(int*);
++  incr_stack_ptr_with_chk(&stack_ptr, sizeof(int*));
+   uint8_t* buffer = *((uint8_t**) stack_ptr);
+-  stack_ptr += sizeof(uint8_t*);
++  incr_stack_ptr_with_chk(&stack_ptr, sizeof(uint8_t*));
+   unsigned size = *((unsigned*) stack_ptr);
+ 
++  check_valid_user_array(buffer, size);
++
+   int orig_size = size;
+   if (fd == STDIN_FILENO) {
+     // Read size characters from the keyboard
+@@ -223,11 +253,41 @@ void sys_read(struct intr_frame* f, void* stack_ptr)
+ void sys_filesize(struct intr_frame* f, void* stack_ptr)
+ {
+   //Get the file descriptor
+-  unsigned fd = *((unsigned*)stack_ptr);
++  int fd = *((int*)stack_ptr);
++
++  struct file* file = get_file(fd);
++  if (file == NULL) {
++    thread_exit_with_status(-1);
++  } else {
++    off_t size = file_length(file);
++    f->eax = size;
++  }
++}
+ 
+-  off_t size = file_length(get_file(fd));
++void sys_seek(void* stack_ptr)
++{
++  int fd = *((unsigned*)stack_ptr);
++  incr_stack_ptr_with_chk(&stack_ptr, sizeof(unsigned));
++  unsigned position = *((unsigned*)stack_ptr);
++
++  struct file* f = get_file(fd);
++  if (f == NULL) {
++    thread_exit_with_status(-1);
++  } else {
++    file_seek(f, position);
++  }
++}
+ 
+-  f->eax = size;
++void sys_tell(void* stack_ptr)
++{
++  int fd = *((unsigned*)stack_ptr);
++
++  struct file* f = get_file(fd);
++  if (f == NULL) {
++    thread_exit_with_status(-1);
++  } else {
++    file_tell(f);
++  }
+ }
+ 
+ void sys_close(void* stack_ptr)
+@@ -249,7 +309,32 @@ void sys_close(void* stack_ptr)
+   }
+ }
+ 
+-void sys_exit(void)
++void sys_exit(void* stack_ptr)
++{
++  int exit_status = *((int*) stack_ptr);
++  incr_stack_ptr_with_chk(&stack_ptr, sizeof(int*));
++
++  thread_exit_with_status(exit_status);
++}
++
++void sys_exec(struct intr_frame* f, void* stack_ptr)
+ {
+-  thread_exit();
++  char* parameters = *((char**) stack_ptr);
++  incr_stack_ptr_with_chk(&stack_ptr, sizeof(char**));
++
++  check_valid_user_string(parameters);
++
++  tid_t tid = process_execute(parameters);
++
++  f->eax = (unsigned)tid;
++}
++
++void sys_wait(struct intr_frame* f, void* stack_ptr)
++{
++  int tid = *((int*) stack_ptr);
++  incr_stack_ptr_with_chk(&stack_ptr, sizeof(int*));
++
++  int status = process_wait(tid);
++
++  f->eax = (unsigned)status;
+ }
+diff --git a/pintos/userprog/syscall.h b/pintos/userprog/syscall.h
+index f55601e..44d31a5 100644
+--- a/pintos/userprog/syscall.h
++++ b/pintos/userprog/syscall.h
+@@ -18,8 +18,12 @@ void sys_open(struct intr_frame* f, void* stack_ptr);
+ void sys_write(struct intr_frame* f, void* stack_ptr);
+ void sys_read(struct intr_frame* f, void* stack_ptr);
+ void sys_filesize(struct intr_frame* f, void* stack_ptr);
++void sys_seek(void* stack_ptr);
++void sys_tell(void* stack_ptr);
+ void sys_close(void* stack_ptr);
+-void sys_exit(void);
++void sys_exit(void* stack_ptr);
++void sys_exec(struct intr_frame* f, void* stack_ptr);
++void sys_wait(struct intr_frame* f, void* stack_ptr);
+ struct file* get_file(unsigned fd);
+ 
+ #endif /* userprog/syscall.h */
+diff --git a/pintos/utils/setitimer-helper b/pintos/utils/setitimer-helper
+index dbef35c..ed84d76 100755
+Binary files a/pintos/utils/setitimer-helper and b/pintos/utils/setitimer-helper differ
+diff --git a/pintos/utils/squish-pty b/pintos/utils/squish-pty
+index 1673045..c25ac2b 100755
+Binary files a/pintos/utils/squish-pty and b/pintos/utils/squish-pty differ
+diff --git a/pintos/utils/squish-unix b/pintos/utils/squish-unix
+index 01c8680..a874643 100755
+Binary files a/pintos/utils/squish-unix and b/pintos/utils/squish-unix differ
