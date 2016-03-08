@@ -33,14 +33,14 @@ bytes_to_sectors (off_t size)
 /* In-memory inode. */
 struct inode 
   {
-    struct list_elem elem;              /* Element in inode list. */
-    disk_sector_t sector;               /* Sector number of disk location. */
-    int open_cnt;                       /* NUmber of threads with the file open */
-    bool removed;                       /* True if deleted, false otherwise. */
-    int deny_write_cnt;                 /* 0: writes ok, >0: deny writes. */
-    struct inode_disk data;             /* Inode content. */
+    struct list_elem elem;         /* Element in inode list. */
+    disk_sector_t sector;          /* Sector number of disk location. */
+    int open_cnt;                  /* NUmber of threads with the file open */
+    bool removed;                  /* True if deleted, false otherwise. */
+    int deny_write_cnt;            /* 0: writes ok, >0: deny writes. */
+    struct inode_disk data;        /* Inode content. */
 
-    int reader_count;                       /* Number of readers currently reading the file */
+    int reader_count;              /* Number of readers currently reading the file */
     /*
      * The lock for the actual reading/writing. If one writer is writing or at least
      * one reader is reading, the resource will be locked. While a writer is writing,
