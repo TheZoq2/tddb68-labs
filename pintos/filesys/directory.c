@@ -28,6 +28,7 @@ struct dir_entry
 bool
 dir_create (disk_sector_t sector, size_t entry_cnt) 
 {
+  lock_init(&lock_dir);
   return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
 }
 
