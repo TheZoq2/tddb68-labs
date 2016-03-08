@@ -5,7 +5,9 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "threads/synch.h"
 
+struct lock lock_dir;
 /* A directory. */
 struct dir 
   {
@@ -152,6 +154,8 @@ dir_add (struct dir *dir, const char *name, disk_sector_t inode_sector)
   if (*name == '\0' || strlen (name) > NAME_MAX)
     return false;
 
+  lock_acquire(&lock_dir);
+
   /* Check that NAME is not in use. */
   if (lookup (dir, name, NULL, NULL))
     goto done;
@@ -175,6 +179,8 @@ dir_add (struct dir *dir, const char *name, disk_sector_t inode_sector)
   success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
 
  done:
+  lock_release(&lock_dir);
+
   return success;
 }
 
@@ -192,6 +198,7 @@ dir_remove (struct dir *dir, const char *name)
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
+  lock_acquire(&lock_dir);
   /* Find directory entry. */
   if (!lookup (dir, name, &e, &ofs))
     goto done;
@@ -212,6 +219,8 @@ dir_remove (struct dir *dir, const char *name)
 
  done:
   inode_close (inode);
+
+  lock_release(&lock_dir);
   return success;
 }
 
